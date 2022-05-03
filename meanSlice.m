@@ -23,7 +23,7 @@ classdef meanSlice < aveSlice
 
             if nargin > 0
 
-                fullfile(casedir, 'mean_flo', 'mean_time.txt')
+                fullfile(casedir, 'mean_flo', 'mean_time.txt');
                 fid = fopen(fullfile(casedir, 'mean_flo', 'mean_time.txt'));
                 while ~feof(fid) % Use lastest mean files
                     temp=fgetl(fid);

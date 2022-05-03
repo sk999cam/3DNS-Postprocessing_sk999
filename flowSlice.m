@@ -59,6 +59,8 @@ classdef flowSlice < handle
                     [~, obj.iLE] = min(xsurf);
                     [~, obj.iTE] = max(xsurf);
                     obj.xSurf = xsurf(obj.iLE:obj.iTE);
+                    %obj.xSurf = xsurf([obj.iLE:-1:1 end:-1:obj.iTE]);
+                    %size(obj.xSurf)
                     R = [0 -1; 1 0];
 
                     obj.yBL = zeros(obj.iTE-obj.iLE+1,size(xo,2));
@@ -180,6 +182,9 @@ classdef flowSlice < handle
                     blfield = [blfield; temp(1:end-1,:)];
                 end
                 blfield = blfield(obj.iLE:obj.iTE,:);
+                %size(blfield,1)
+                %blfield = blfield([obj.iLE:-1:1 end:-1:obj.iTE],:);
+                %size(blfield,1)
             end
         end
 
