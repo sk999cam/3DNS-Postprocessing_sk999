@@ -155,6 +155,13 @@ classdef DNS_case < handle
             obj.nSlices = length(slices);
         end
 
+        function slice = readSingleKSlice(obj,numslice)
+            slicetime = readmatrix(fullfile(obj.runpath,'slice_time.txt'));
+            slicenums = slicetime(end-obj.nSlices+1:end,1);
+            slicenum = slicenums(numslice);
+            slice =kSlice(obj.runpath,slicenum,obj.blk.blockdims,obj.gas);
+        end
+
         function readKSlices(obj, runs, numslices)
             %READKSLICES Read in instantaneous k slices
             % Optional: numslices - only read last n slices if there are many
