@@ -4,7 +4,7 @@ hfcase = DNS_case(casename, run);
 %hfcase = DNS_case('cwl90_window_turb_clean',3);
 %runs =[5];
 %hfcase.readKSlices([],61:85);
-imgfolder = fullfile(hfcase.casepath,'run3','animation_images','k_Mach');
+imgfolder = fullfile(hfcase.casepath,sprintf('run%d',run),'animation_images','k_Mach');
 %%
 if ~exist(imgfolder, 'dir')
        mkdir(imgfolder);
