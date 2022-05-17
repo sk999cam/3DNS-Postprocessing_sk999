@@ -162,6 +162,13 @@ classdef DNS_case < handle
             slice =kSlice(obj.runpath,slicenum,obj.blk.blockdims,obj.gas);
         end
 
+        function slice = readSingleJSlice(obj,numslice)
+            slicetime = readmatrix(fullfile(obj.runpath,'slice_time.txt'));
+            slicenums = slicetime(end-obj.nSlices+1:end,1);
+            slicenum = slicenums(numslice);
+            slice =jSlice(obj.runpath,slicenum,obj.blk.blockdims,obj.gas);
+        end
+
         function readKSlices(obj, runs, numslices)
             %READKSLICES Read in instantaneous k slices
             % Optional: numslices - only read last n slices if there are many
@@ -280,7 +287,7 @@ classdef DNS_case < handle
                 pcolor(ax, obj.blk.x{i}, obj.blk.y{i}, q{i});
             end
             shading('interp')
-            axis([-0.2 2 -0.5 0.5])
+            axis([-0.6 2 -0.5 0.5])
             axis equal
             cb = colorbar;
             if nargin > 4
