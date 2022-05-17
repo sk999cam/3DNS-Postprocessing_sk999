@@ -1,4 +1,4 @@
-function slice2kPlot(slice, prop, fpath, lims, label)
+function slice2kPlot(slice, blk, prop, fpath, lims, label)
     h = figure('Visible','off');
     ax = axes(h);
   
@@ -6,16 +6,16 @@ function slice2kPlot(slice, prop, fpath, lims, label)
 
     hold on
     for i=1:slice.NB
-        pcolor(ax, obj.blk.x{i}, obj.blk.y{i}, q{i});
+        pcolor(ax, blk.x{i}, blk.y{i}, q{i});
     end
     shading('interp')
     axis([-0.6 2 -0.5 0.5])
     axis equal
     cb = colorbar(ax);
-    if nargin > 3 && ~isempty(lims)
+    if nargin > 4 && ~isempty(lims)
         caxis(lims);
     end
-    if nargin > 4 && ~isempty(label)
+    if nargin > 5 && ~isempty(label)
         cb.Label.String = label;
     end
     set(ax,'FontSize',16);
