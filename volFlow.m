@@ -132,9 +132,20 @@ classdef volFlow
         end
 
         function value = get.s(obj)
+            pool = gcp('nocreate');
             value = cell(1,obj.NB);
-            for nb =1:obj.NB
-                value{nb} = obj.cp*log(obj.T{nb}/300) - obj.rgas*log(obj.p{nb}/1e5);
+            if isempty(pool)
+                for nb =1:obj.NB
+                    pnow = (obj.gam -1)*(obj.Et{nb} - 0.5*(obj.u{nb}.^2 + obj.v{nb}.^2 + obj.w{nb}.^2).*obj.ro{nb});
+                    Tnow = pnow./(obj.ro{nb}*obj.rgas);
+                    value{nb} = obj.cp*log(Tnow/300) - obj.rgas*log(pnow/1e5);
+                end
+            else
+                parfor nb =1:obj.NB
+                    pnow = (obj.gam -1)*(obj.Et{nb} - 0.5*(obj.u{nb}.^2 + obj.v{nb}.^2 + obj.w{nb}.^2).*obj.ro{nb})
+                    Tnow = pnow./(obj.ro{nb}*obj.rgas);
+                    value{nb} = obj.cp*log(Tnow/300) - obj.rgas*log(pnow/1e5);
+                end
             end
         end
 
@@ -144,6 +155,33 @@ classdef volFlow
                 value{nb} = obj.cp*log(obj.T{nb}/300) - obj.rgas*log(obj.p{nb}/1e5);
             end
         end
+
+        function value = k_ave(obj,prop)
+            pool = gcp('nocreate');
+            if isempty(pool)
+                for nb = 1:obj.NB
+                    switch prop
+                        case 's'
+                            pnow = (obj.gam -1)*(obj.Et{nb} - 0.5*(obj.u{nb}.^2 + obj.v{nb}.^2 + obj.w{nb}.^2).*obj.ro{nb});
+                            Tnow = pnow./(obj.ro{nb}*obj.rgas);
+                            propnow = obj.cp*log(Tnow/300) - obj.rgas*log(pnow/1e5);
+                    end
+                    value{nb} = mean(propnow,3);
+                end
+            else
+                parfor nb = 1:obj.NB
+                    switch prop
+                        case 's'
+                            pnow = (obj.gam -1)*(obj.Et{nb} - 0.5*(obj.u{nb}.^2 + obj.v{nb}.^2 + obj.w{nb}.^2).*obj.ro{nb});
+                            Tnow = pnow./(obj.ro{nb}*obj.rgas);
+                            propnow = obj.cp*log(Tnow/300) - obj.rgas*log(pnow/1e5);
+                    end
+                    value{nb} = mean(propnow,3);
+                end
+            end
+        end
+
+            
 
         function getSize(obj)
             props = properties(obj); 

@@ -3,8 +3,8 @@ function slice2jPlot(slice, prop, fpath, lims, label)
     ax = axes(h);
 
     q = slice.(prop);
-    dx = abs(slice.X(end,1)-obj.X(1,1));
-    dy = abs(slice.Z(1,end)-obj.Z(1,1));
+    dx = abs(slice.X(end,1)-slice.X(1,1));
+    dy = abs(slice.Z(1,end)-slice.Z(1,1));
     
     pcolor(ax, slice.X, slice.Z, q);
     xlabel('Surface distance')

@@ -17,6 +17,8 @@ classdef RANSSlice < aveSlice
     properties (Dependent = true)
         Pr;             % Turbulence production
         Pr_dist;
+        p;
+        T;
     end
 
     methods
@@ -90,6 +92,23 @@ classdef RANSSlice < aveSlice
                 %clear nodes
             end
             obj.getBCs(blk.inlet_blocks{1});
+        end
+
+        function value = get.p(obj)
+            disp('Calculating p')
+            value = cell(1,obj.NB);
+            for nb = 1:obj.NB
+                value{nb} = (obj.gas.gam -1)*(obj.Et{nb} - 0.5*(obj.u{nb}.^2 + obj.v{nb}.^2 + obj.w{nb}.^2).*obj.ro{nb});
+            end
+        end
+
+        function value = get.T(obj)
+            disp('Calculating T')
+            value = cell(1,obj.NB);
+            for nb = 1:obj.NB
+                pnow = (obj.gas.gam -1)*(obj.Et{nb} - 0.5*(obj.u{nb}.^2 + obj.v{nb}.^2 + obj.w{nb}.^2).*obj.ro{nb});
+                value{nb} = pnow./(obj.ro{nb}*obj.gas.rgas);
+            end
         end
 
         function kPlot(obj,prop,ax,lims)

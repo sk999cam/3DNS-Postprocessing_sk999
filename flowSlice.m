@@ -21,8 +21,8 @@ classdef flowSlice < handle
     end
 
     properties (Dependent = true)
-        T;              % Temperature
-        p;              % p stat
+        %T;              % Temperature
+        %p;              % p stat
         M;              % Mach No
         s;              % Entropy ( cp*log(T/300) - R*log(p/1e5) )
         vel;            % Velocity
@@ -90,26 +90,12 @@ classdef flowSlice < handle
                     obj.gas.rgas = obj.gas.cp*(1-1/obj.gas.gam);
                     obj.NB = size(blk.blockdims,1);
                 end
+
             end
         end         % End of constructor
 
 
-        function value = get.p(obj)
-            disp('Calculating p')
-            value = cell(1,obj.NB);
-            for nb = 1:obj.NB
-                value{nb} = (obj.gas.gam -1)*(obj.Et{nb} - 0.5*(obj.u{nb}.^2 + obj.v{nb}.^2 + obj.w{nb}.^2).*obj.ro{nb});
-            end
-        end
 
-        function value = get.T(obj)
-            disp('Calculating T')
-            value = cell(1,obj.NB);
-            for nb = 1:obj.NB
-                pnow = (obj.gas.gam -1)*(obj.Et{nb} - 0.5*(obj.u{nb}.^2 + obj.v{nb}.^2 + obj.w{nb}.^2).*obj.ro{nb});
-                value{nb} = pnow./(obj.ro{nb}*obj.gas.rgas);
-            end
-        end
 
         function value = get.vel(obj)
             disp('Calculating vel')
@@ -122,9 +108,10 @@ classdef flowSlice < handle
         function value = get.M(obj)
             disp('Calculating M')
             value = cell(1,obj.NB);
+            pnow = obj.p;
             for nb = 1:obj.NB
-                pnow = (obj.gas.gam - 1)*(obj.Et{nb} - 0.5*(obj.u{nb}.^2 + obj.v{nb}.^2 + obj.w{nb}.^2).*obj.ro{nb});
-                Tnow = pnow./(obj.ro{nb}*obj.gas.rgas);
+                %pnow = (obj.gas.gam - 1)*(obj.Et{nb} - 0.5*(obj.u{nb}.^2 + obj.v{nb}.^2 + obj.w{nb}.^2).*obj.ro{nb});
+                Tnow = pnow{nb}./(obj.ro{nb}*obj.gas.rgas);
                 velnow = sqrt(obj.u{nb}.^2 + obj.v{nb}.^2 + obj.w{nb}.^2);
                 value{nb} = velnow./sqrt(obj.gas.gam*obj.gas.rgas*Tnow);
             end
@@ -144,16 +131,18 @@ classdef flowSlice < handle
             disp('Calcualting mu')
             value = cell(1,obj.NB);
             for nb = 1:obj.NB
-                pnow = (obj.gas.gam - 1)*(obj.Et{nb} - 0.5*(obj.u{nb}.^2 + obj.v{nb}.^2 + obj.w{nb}.^2).*obj.ro{nb});
+                pnow = obj.p{nb};%(obj.gas.gam - 1)*(obj.Et{nb} - 0.5*(obj.u{nb}.^2 + obj.v{nb}.^2 + obj.w{nb}.^2).*obj.ro{nb});
                 Tnow = pnow./(obj.ro{nb}*obj.gas.rgas);
                 value{nb} = obj.gas.mu_ref*(Tnow/obj.gas.mu_tref).^(3/2) .* (obj.gas.mu_cref + obj.gas.mu_tref)./(obj.gas.mu_cref + Tnow);
             end
         end
 
+            
+        
 
         function [profile, i] = BLprof(obj, x, prop)
             %BLPROF get a profile of prop across the BL at specified x
-            [~, i] = min(abs(obj.xSurf-x));
+            [~, i] = uin(abs(obj.xSurf-x));
             if any(strcmp(["dsdy" "U"],prop))
                 profile = obj.(prop)(i,:);
             else

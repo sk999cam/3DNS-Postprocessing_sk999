@@ -8,6 +8,14 @@ classdef meanSlice < aveSlice
         meanTime;
         Pr;             % Turbulence production
         diss;
+        rev_gen_x;
+        rev_gen_y;
+        irrev_gen;
+        diss_T;
+        p;
+        T;
+        span;
+        nk;
     end
 
     properties (Dependent = true)
@@ -16,10 +24,16 @@ classdef meanSlice < aveSlice
 
     methods
         function obj = meanSlice(casedir, blk, gas)
-            blk.inlet_blocks{1}
             obj@aveSlice(blk, gas);
             disp('Constructing meanSlice')
-            nstats = 17;
+            if exist(fullfile(casedir,'mean_flo','nstats.txt'),'file')
+                fid = fopen(fullfile(casedir,'mean_flo','nstats.txt'));
+                nstats = str2double(fgetl(fid));
+                fclose(fid);
+            else
+                nstats = 17;
+            end
+            nstats
 
             if nargin > 0
 
@@ -68,6 +82,11 @@ classdef meanSlice < aveSlice
                     T = zeros(blk.blockdims(nb,1),blk.blockdims(nb,2));
                     ros = zeros(blk.blockdims(nb,1),blk.blockdims(nb,2));
                     diss = zeros(blk.blockdims(nb,1),blk.blockdims(nb,2));
+                    qx_T = zeros(blk.blockdims(nb,1),blk.blockdims(nb,2));
+                    qy_T = zeros(blk.blockdims(nb,1),blk.blockdims(nb,2));
+                    qz_T = zeros(blk.blockdims(nb,1),blk.blockdims(nb,2));
+                    irrev_gen = zeros(blk.blockdims(nb,1),blk.blockdims(nb,2));
+                    diss_T = zeros(blk.blockdims(nb,1),blk.blockdims(nb,2));
 
                     sz = size(ro2);
                     icount(1:prod(sz)) = 0;
@@ -100,6 +119,16 @@ classdef meanSlice < aveSlice
                             T(i,j) = A(15,n)/obj.meanTime;
                             ros(i,j) = A(16,n)/obj.meanTime;
                             diss(i,j) = A(17,n)/obj.meanTime;
+                            if nstats > 17
+                                qx_T(i,j) = A(18,n)/obj.meanTime;
+                                qy_T(i,j) = A(19,n)/obj.meanTime;
+                                qz_T(i,j) = A(20,n)/obj.meanTime;
+                                irrev_gen(i,j) = A(21,n)/obj.meanTime;
+                            end
+
+                            if nstats > 21
+                                diss_T(i,j) = A(22,n)/obj.meanTime;
+                            end
                         end
                     end
     
@@ -108,6 +137,7 @@ classdef meanSlice < aveSlice
                     obj.v{nb} = rvdt./(rodt);
                     obj.w{nb} = rwdt./(rodt);
                     obj.Et{nb} = Etdt/obj.meanTime;
+                    obj.p{nb} = (Etdt/obj.meanTime - 0.5*(rou2 + rov2 + row2))*(obj.gas.gam-1);
                     obj.diss{nb} = diss;
 
                     [DUDX,DUDY] = gradHO(blk.x{nb},blk.y{nb},obj.u{nb});
@@ -119,9 +149,21 @@ classdef meanSlice < aveSlice
 
                     obj.Pr{nb} = -(UdUd.*DUDX + UdVd.*(DUDY+DVDX) + VdVd.*DVDY);
                     obj.diss{nb} = diss;
+
+                    if nstats > 17
+                        obj.rev_gen_x{nb} = qx_T;
+                        obj.rev_gen_y{nb} = qy_T;
+                        obj.irrev_gen{nb} = irrev_gen;
+
+                    end
+                    if nstats > 21
+                        obj.diss_T{nb} = diss_T;
+                    end
                 end
                 
             end
+            obj.span = blk.span;
+            obj.nk = blk.nk{1};
             obj.getBCs(blk.inlet_blocks{1});
 %             Mnow = obj.M;
 %             Unow = obj.vel;
@@ -219,8 +261,6 @@ classdef meanSlice < aveSlice
 %         function value = get.Res(obj)
 %             value = obj.ssurf*obj.Uinf*obj.roinf/obj.muinf;
 %         end
-
-        
 
         
     end

@@ -153,6 +153,10 @@ classdef DNS_case < handle
             obj.iTrip = false;
             slices = dir(fullfile(obj.runpath,'k_cuts','kcu2_1_*'));
             obj.nSlices = length(slices);
+
+            obj.blk.io_surfaces.blks = [1 2 2 7 11 11 10 12 12 8 3 3];
+            obj.blk.io_surfaces.types = [1 1 3 3 3 2 2 2 4 4 4 1];
+
         end
 
         function slice = readSingleKSlice(obj,numslice)
@@ -166,7 +170,7 @@ classdef DNS_case < handle
             slicetime = readmatrix(fullfile(obj.runpath,'slice_time.txt'));
             slicenums = slicetime(end-obj.nSlices+1:end,1);
             slicenum = slicenums(numslice);
-            slice =jSlice(obj.runpath,slicenum,obj.blk.blockdims,obj.gas);
+            slice =jSlice(obj.runpath,slicenum,obj.blk,obj.gas);
         end
 
         function readKSlices(obj, runs, numslices)
@@ -528,5 +532,123 @@ classdef DNS_case < handle
             ransdir = fullfile('RANS','cwl90');
             obj.RANSSlices{turb.mod} = RANSSlice(ransdir,data,obj.blk,obj.gas);
         end
+
+        function [e_s, e_phi, e_irrev, e_N] = entropy_balance(obj)
+
+            e_s = 0.0;
+            for ii=1:length(obj.blk.io_surfaces.blks)
+                
+                prop(:,:,1) = obj.meanFlow.ro{obj.blk.io_surfaces.blks(ii)}.* ...
+                    obj.meanFlow.s{obj.blk.io_surfaces.blks(ii)}.* ...
+                    obj.meanFlow.u{obj.blk.io_surfaces.blks(ii)};
+
+                prop(:,:,2) = obj.meanFlow.ro{obj.blk.io_surfaces.blks(ii)}.* ...
+                    obj.meanFlow.s{obj.blk.io_surfaces.blks(ii)}.* ...
+                    obj.meanFlow.v{obj.blk.io_surfaces.blks(ii)};
+                
+                temp(ii) = obj.surface_integral(prop, obj.blk.io_surfaces.blks(ii), ...
+                    obj.blk.io_surfaces.types(ii));
+
+                e_s = e_s+temp(ii);
+
+                if obj.blk.io_surfaces.blks(ii) == 3
+                    temp(ii)
+                end
+
+                clear prop
+
+            end
+
+            e_phi = 0.0;
+            e_irrev = 0.0;
+            
+            parfor ib = 1:obj.NB
+                ib
+                prop_phi = obj.meanFlow.diss_T{ib};
+                prop_phi = obj.meanFlow.diss{ib}./obj.meanFlow.T{ib};
+                prop_irrev = obj.meanFlow.irrev_gen{ib};
+                e_phi = e_phi + obj.area_integral(prop_phi, ib);
+                e_irrev = e_irrev + obj.area_integral(prop_irrev, ib);
+            end
+
+            e_N = e_s - e_phi - e_irrev;
+
+            
+        end
+
+        function value = surface_integral(obj, prop, ib, type)
+            if ib == 3
+                ib
+                type
+            end
+            switch type
+                case 1
+                    xnow = obj.blk.x{ib}(1,end:-1:1);
+                    ynow = obj.blk.y{ib}(1,end:-1:1);
+                    qx = prop(1,end:-1:1,1);
+                    qy = prop(1,end:-1:1,2);
+                case 2 
+                    xnow = obj.blk.x{ib}(end,:);
+                    ynow = obj.blk.y{ib}(end,:);
+                    qx = prop(end,:,1);
+                    qy = prop(end,:,2);
+                case 3
+                    xnow = obj.blk.x{ib}(:,1);
+                    ynow = obj.blk.y{ib}(:,1);
+                    qx = prop(:,1,1);
+                    qy = prop(:,1,2);
+                case 4
+                    xnow = obj.blk.x{ib}(end:-1:1,end);
+                    ynow = obj.blk.y{ib}(end:-1:1,end);
+                    qx = prop(end:-1:1,end,1);
+                    qy = prop(end:-1:1,end,2);
+            end
+
+            xnow = reshape(xnow,1,[]);
+            ynow = reshape(ynow,1,[]);
+            qx = reshape(qx,1,[]);
+            qy = reshape(qy,1,[]);
+
+            dx = xnow(2:end)-xnow(1:end-1);
+            dy = ynow(2:end)-ynow(1:end-1);
+            ds = sqrt(dx.^2+dy.^2);
+            s = [0 cumsum(ds)];
+            
+            n(1,:) = [dy(1)/ds(1) -dx(1)/ds(1)];
+            n(length(xnow),:) = [dy(end)/ds(end) -dx(end)/ds(end)];
+
+            for i=2:length(xnow)-1
+                n1 = [dy(i-1)/ds(i-1) -dx(i-1)/ds(i-1)];
+                n2 = [dy(i)/ds(i) -dx(i)/ds(i)];
+                n(i,:) = (n1+n2)/norm(n1+n2);
+            end
+            
+
+            integrand = n(:,1).*qx' + n(:,2).*qy';
+            value = trapz(s',integrand);
+
+
+        end
+
+        function value = area_integral(obj, prop, nb)
+            value = 0.0;
+            for i=1:obj.blk.blockdims(nb,1)-1
+                for j=1:obj.blk.blockdims(nb,2)-1
+                    xnow = [obj.blk.x{nb}(i,j) obj.blk.x{nb}(i+1,j) ...
+                        obj.blk.x{nb}(i+1,j+1) obj.blk.x{nb}(i,j+1)];
+                    ynow = [obj.blk.y{nb}(i,j) obj.blk.y{nb}(i+1,j) ...
+                        obj.blk.y{nb}(i+1,j+1) obj.blk.y{nb}(i,j+1)];
+
+                    q = 0.25*(prop(i,j)+prop(i+1,j)+prop(i+1,j+1)+prop(i,j+1));
+
+                    area = polyarea(xnow,ynow);
+                    value = value+area*q;
+                end
+            end
+        end
+
+
+        
+
     end
 end

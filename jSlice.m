@@ -45,8 +45,6 @@ classdef jSlice
                 obj.v = [];
                 obj.w = [];
                 obj.Et = [];
-
-    
                 obj.NB = size(blk.blockdims,1);
                 x = [];
                 y = [];

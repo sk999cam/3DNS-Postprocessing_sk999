@@ -284,6 +284,34 @@ classdef aveSlice < flowSlice
             end
             value = obj.tau_w./(0.5*roe.*Ue.*Ue);
         end
+
+        function value = get.tau_w(obj)
+
+            Unow = obj.U(:,2);
+            Y0 = obj.yBL(:,2);
+            munow = obj.oGridProp('mu');
+            value = munow(:,2).*Unow./Y0;
+
+        end
+
+        function [xplus,yplus,zplus] = wall_coords_offset(obj)
+            dy = obj.yBL(:,2);
+            size(dy)
+            ds = obj.ssurf(2:end) - obj.ssurf(1:end-1);
+            ds(end+1) = ds(end);
+            ds = ds';
+            size(ds)
+            dz = ones(size(dy))*obj.span/(obj.nk-1);
+
+            munow = obj.oGridProp('mu');
+            munow = munow(:,2);
+            ronow = obj.oGridProp('ro');
+            ronow = ronow(:,2);
+
+            xplus = ds.*sqrt(obj.tau_w.*ronow)./munow;
+            yplus = dy.*sqrt(obj.tau_w.*ronow)./munow;
+            zplus = dz.*sqrt(obj.tau_w.*ronow)./munow;
+        end
         
         function blContour(obj, prop, ax, lims, fmt)
             if nargin < 3 || isempty(ax)
