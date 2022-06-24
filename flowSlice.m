@@ -11,12 +11,16 @@ classdef flowSlice < handle
         Et;
         xSurf;
         yBL;
+        xO;
+        yO;
         oblocks;
         oblocks_flip;
+        blk;
         iLE;
         iTE;
         n;
         ssurf;          % Surface distance fron LE
+        vortZ;          % Z vorticity
 
     end
 
@@ -27,6 +31,7 @@ classdef flowSlice < handle
         s;              % Entropy ( cp*log(T/300) - R*log(p/1e5) )
         vel;            % Velocity
         mu;             % Viscosity
+        p0;
     end
 
     methods
@@ -38,6 +43,7 @@ classdef flowSlice < handle
                     obj.oblocks = blk.oblocks;
                     obj.oblocks_flip = blk.oblocks_flip;
                     obj.gas = gas;
+                    obj.blk = blk;
                     %obj.gas.mu_ref = 0.0008748708280693193;
                     obj.gas.rgas = obj.gas.cp*(1-1/obj.gas.gam);
                     obj.NB = size(blk.blockdims,1);
@@ -59,6 +65,9 @@ classdef flowSlice < handle
                     [~, obj.iLE] = min(xsurf);
                     [~, obj.iTE] = max(xsurf);
                     obj.xSurf = xsurf(obj.iLE:obj.iTE);
+                    obj.xO = xo(obj.iLE:obj.iTE,:);
+                    obj.yO = yo(obj.iLE:obj.iTE,:);
+
                     %obj.xSurf = xsurf([obj.iLE:-1:1 end:-1:obj.iTE]);
                     %size(obj.xSurf)
                     R = [0 -1; 1 0];
@@ -90,7 +99,6 @@ classdef flowSlice < handle
                     obj.gas.rgas = obj.gas.cp*(1-1/obj.gas.gam);
                     obj.NB = size(blk.blockdims,1);
                 end
-
             end
         end         % End of constructor
 
@@ -102,6 +110,14 @@ classdef flowSlice < handle
             value = cell(1,obj.NB);
             for nb = 1:obj.NB
                 value{nb} = sqrt(obj.u{nb}.^2 + obj.v{nb}.^2 + obj.w{nb}.^2);
+            end
+        end
+
+        function value = get.p0(obj)
+            pnow = obj.p;
+            Mnow = obj.M;
+            for nb = 1:obj.NB
+                value{nb} = pnow{nb}.*(1+0.5*(obj.gas.gam-1)*Mnow{nb}.^2).^(obj.gas.gam/(obj.gas.gam-1));
             end
         end
 
@@ -137,14 +153,25 @@ classdef flowSlice < handle
             end
         end
 
+        function value = get.vortZ(obj)
+            disp('Calculating z componant of vorticity')
+            value = cell(1,obj.NB);
+            for nb = 1:obj.NB
+                [~, dudy] = gradHO(obj.blk.x{nb},obj.blk.y{nb},obj.u{nb});
+                [dvdx, ~] = gradHO(obj.blk.x{nb},obj.blk.y{nb},obj.v{nb});
+                value{nb} = dvdx - dudy;
+            end
+        end
+
             
         
 
         function [profile, i] = BLprof(obj, x, prop)
             %BLPROF get a profile of prop across the BL at specified x
-            [~, i] = uin(abs(obj.xSurf-x));
+            [~, i] = min(abs(obj.xSurf-x));
             if any(strcmp(["dsdy" "U"],prop))
                 profile = obj.(prop)(i,:);
+                size(profile)
             else
                 propfield = oGridProp(obj,prop);
                 profile = propfield(i,:);
@@ -155,7 +182,7 @@ classdef flowSlice < handle
             %OGRIDPROP Construct array of property in o grid for one surface
             %of blade
             
-            if any(strcmp(["U"], prop))
+            if any(strcmp(["U","dsdy"], prop))
                 blfield = obj.(prop);
             else
                 blfield = [];
@@ -175,6 +202,14 @@ classdef flowSlice < handle
                 %blfield = blfield([obj.iLE:-1:1 end:-1:obj.iTE],:);
                 %size(blfield,1)
             end
+        end
+
+        function value = blNormGrad(obj,prop)
+            q = obj.oGridProp(prop);
+            value = (q(:,2)-q(:,1))./(obj.yBL(:,2)-obj.yBL(:,1));
+            value = [value (q(:,3:end)-q(:,1:end-2))./(obj.yBL(:,3:end)-obj.yBL(:,1:end-2))];
+            value = [value (q(:,end)-q(:,end-1))./(obj.yBL(:,end)-obj.yBL(:,end-1))];
+
         end
 
         function plot_BL_profile(obj,x,prop,ax)
@@ -243,6 +278,46 @@ classdef flowSlice < handle
             cb = colorbar;
             if nargin == 5
                 caxis(lims)
+            end
+        end
+
+        function [xsurf, ysurf, n] = getSurfCoordsNorms(obj)
+            xo = [];
+            yo = [];
+            for i=1:length(obj.oblocks)
+                xtmp = obj.blk.x{obj.oblocks(i)}(:,:);
+                ytmp = obj.blk.y{obj.oblocks(i)}(:,:);
+                xtmp = flip(xtmp,2);
+                ytmp = flip(ytmp,2);
+                if obj.oblocks_flip(i) == 1
+                    xtmp = flip(xtmp);
+                    ytmp = flip(ytmp);
+                end
+                xo = [xo; xtmp(1:end-1,:)];
+                yo = [yo; ytmp(1:end-1,:)];
+            end
+            xsurf = xo(:,1);
+            ysurf = yo(:,1);
+
+            %obj.xSurf = xsurf([obj.iLE:-1:1 end:-1:obj.iTE]);
+            %size(obj.xSurf)
+            R = [0 -1; 1 0];
+            for i = 1:size(xo,1)
+                
+                if i==1
+                    s1 = [(xo(i+1,1)-xo(i,1)); (yo(i+1,1)-yo(i,1))];
+                    s2 = [(xo(i,1)-xo(end,1)); (yo(i,1)-yo(end,1))];
+                elseif i==size(xo,1)
+                    s1 = [(xo(1,1)-xo(i,1)); (yo(1,1)-yo(i,1))];
+                    s2 = [(xo(i,1)-xo(i-1,1)); (yo(i,1)-yo(i-1,1))];
+                else
+                    s1 = [(xo(i+1,1)-xo(i,1)); (yo(i+1,1)-yo(i,1))];
+                    s2 = [(xo(i,1)-xo(i-1,1)); (yo(i,1)-yo(i-1,1))];
+                end
+                n1 = R*s1/norm(s1);
+                n2 = R*s2/norm(s2);
+                nnow = (0.5*(n1+n2)/norm(0.5*(n1+n2)));
+                n(:,i) = nnow;
             end
         end
     end

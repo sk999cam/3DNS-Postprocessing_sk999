@@ -533,48 +533,48 @@ classdef DNS_case < handle
             obj.RANSSlices{turb.mod} = RANSSlice(ransdir,data,obj.blk,obj.gas);
         end
 
-        function [e_s, e_phi, e_irrev, e_N] = entropy_balance(obj)
-
-            e_s = 0.0;
-            for ii=1:length(obj.blk.io_surfaces.blks)
-                
-                prop(:,:,1) = obj.meanFlow.ro{obj.blk.io_surfaces.blks(ii)}.* ...
-                    obj.meanFlow.s{obj.blk.io_surfaces.blks(ii)}.* ...
-                    obj.meanFlow.u{obj.blk.io_surfaces.blks(ii)};
-
-                prop(:,:,2) = obj.meanFlow.ro{obj.blk.io_surfaces.blks(ii)}.* ...
-                    obj.meanFlow.s{obj.blk.io_surfaces.blks(ii)}.* ...
-                    obj.meanFlow.v{obj.blk.io_surfaces.blks(ii)};
-                
-                temp(ii) = obj.surface_integral(prop, obj.blk.io_surfaces.blks(ii), ...
-                    obj.blk.io_surfaces.types(ii));
-
-                e_s = e_s+temp(ii);
-
-                if obj.blk.io_surfaces.blks(ii) == 3
-                    temp(ii)
-                end
-
-                clear prop
-
-            end
-
-            e_phi = 0.0;
-            e_irrev = 0.0;
-            
-            parfor ib = 1:obj.NB
-                ib
-                prop_phi = obj.meanFlow.diss_T{ib};
-                prop_phi = obj.meanFlow.diss{ib}./obj.meanFlow.T{ib};
-                prop_irrev = obj.meanFlow.irrev_gen{ib};
-                e_phi = e_phi + obj.area_integral(prop_phi, ib);
-                e_irrev = e_irrev + obj.area_integral(prop_irrev, ib);
-            end
-
-            e_N = e_s - e_phi - e_irrev;
-
-            
-        end
+%         function [e_s, e_phi, e_irrev, e_N] = entropy_balance(obj)
+% 
+%             e_s = 0.0;
+%             for ii=1:length(obj.blk.io_surfaces.blks)
+%                 
+%                 prop(:,:,1) = obj.meanFlow.ro{obj.blk.io_surfaces.blks(ii)}.* ...
+%                     obj.meanFlow.s{obj.blk.io_surfaces.blks(ii)}.* ...
+%                     obj.meanFlow.u{obj.blk.io_surfaces.blks(ii)};
+% 
+%                 prop(:,:,2) = obj.meanFlow.ro{obj.blk.io_surfaces.blks(ii)}.* ...
+%                     obj.meanFlow.s{obj.blk.io_surfaces.blks(ii)}.* ...
+%                     obj.meanFlow.v{obj.blk.io_surfaces.blks(ii)};
+%                 
+%                 temp(ii) = obj.surface_integral(prop, obj.blk.io_surfaces.blks(ii), ...
+%                     obj.blk.io_surfaces.types(ii));
+% 
+%                 e_s = e_s+temp(ii);
+% 
+%                 if obj.blk.io_surfaces.blks(ii) == 3
+%                     temp(ii)
+%                 end
+% 
+%                 clear prop
+% 
+%             end
+% 
+%             e_phi = 0.0;
+%             e_irrev = 0.0;
+%             
+%             parfor ib = 1:obj.NB
+%                 ib
+%                 prop_phi = obj.meanFlow.diss_T{ib};
+%                 prop_phi = obj.meanFlow.diss{ib}./obj.meanFlow.T{ib};
+%                 prop_irrev = obj.meanFlow.irrev_gen{ib};
+%                 e_phi = e_phi + obj.area_integral(prop_phi, ib);
+%                 e_irrev = e_irrev + obj.area_integral(prop_irrev, ib);
+%             end
+% 
+%             e_N = e_s - e_phi - e_irrev;
+% 
+%             
+%         end
 
         function value = surface_integral(obj, prop, ib, type)
             if ib == 3
@@ -647,6 +647,110 @@ classdef DNS_case < handle
             end
         end
 
+        function [e_s, e_phi, e_irrev, e_rev] = entropy_balance(obj)
+            
+            pool = gcp('nocreate');
+            if isempty(pool)
+                parpool;
+            end
+            
+            %%
+            
+            celldims = obj.blk.blockdims(:,1:2) - 1;
+            cells.x = zeros([sum(prod(celldims,2)) 1]);
+            cells.y = zeros([sum(prod(celldims,2)) 1]);
+            cells.area = zeros([sum(prod(celldims,2)) 1]);
+            cells.unst = zeros([sum(prod(celldims,2)) 1]);
+            cells.conv = zeros([sum(prod(celldims,2)) 1]);
+            cells.diss = zeros([sum(prod(celldims,2)) 1]);
+            cells.irrev = zeros([sum(prod(celldims,2)) 1]);
+            cells.rev = zeros([sum(prod(celldims,2)) 1]);
+            
+            
+            %%
+            
+            parfor ib=1:obj.NB
+                nentries = celldims(ib,1)*celldims(ib,2);
+            
+            
+                [drousdx,~] = gradHO(obj.blk.x{ib},obj.blk.y{ib},obj.meanFlow.rous{ib});
+                [~,drovsdy] = gradHO(obj.blk.x{ib},obj.blk.y{ib},obj.meanFlow.rovs{ib});
+                [dqx_Tdx,~] = gradHO(obj.blk.x{ib},obj.blk.y{ib},obj.meanFlow.rev_gen_x{ib});
+                [~,dqy_Tdy] = gradHO(obj.blk.x{ib},obj.blk.y{ib},obj.meanFlow.rev_gen_y{ib});
+            
+                %unst_prop = obj.meanFlow.ro{ib}.*dsdt;
+            
+                %conv_prop = obj.meanFlow.ro{ib}.*(obj.meanFlow.u{ib}.*dsdx + ...
+                %    obj.meanFlow.v{ib}.*dsdy);
+
+                conv_prop = drousdx + drovsdy;
+            
+                diss_prop = obj.meanFlow.diss_T{ib};
+                irrev_prop = obj.meanFlow.irrev_gen{ib};
+                rev_prop = dqx_Tdx + dqy_Tdy;
+            
+                xtmp{ib} = zeros(nentries, 1);
+                ytmp{ib} = zeros(nentries, 1);
+                areatmp{ib} = zeros(nentries, 1);
+                %unsttmp{ib} = zeros(nentries,1);
+                convtmp{ib} = zeros(nentries, 1);
+                disstmp{ib} = zeros(nentries, 1);
+                irrevtmp{ib} = zeros(nentries, 1);
+                revtmp{ib} = zeros(nentries, 1);
+                
+                for i=1:celldims(ib,1)
+                    if mod(i, 50) == 0
+                         sprintf('Block %d, i=%d/%d', ib, i, celldims(ib,1))
+                    end
+                    for j=1:celldims(ib,2)
+                        pos = celldims(ib,2)*(i-1)+j;
+                        xnow = [obj.blk.x{ib}(i,j) obj.blk.x{ib}(i+1,j) ...
+                            obj.blk.x{ib}(i+1,j+1) obj.blk.x{ib}(i,j+1)];
+                        ynow = [obj.blk.y{ib}(i,j) obj.blk.y{ib}(i+1,j) ...
+                            obj.blk.y{ib}(i+1,j+1) obj.blk.y{ib}(i,j+1)];
+            
+                        xtmp{ib}(pos) = mean(xnow);
+                        ytmp{ib}(pos) = mean(ynow);
+            
+                        area = polyarea(xnow,ynow);
+                        areatmp{ib}(pos) = area;
+            
+                        %unsttmp{ib}(pos) = 0.25*(unst_prop(i,j)+unst_prop(i+1,j)+unst_prop(i+1,j+1)+unst_prop(i,j+1))*area;
+                        convtmp{ib}(pos) = 0.25*(conv_prop(i,j)+conv_prop(i+1,j)+conv_prop(i+1,j+1)+conv_prop(i,j+1))*area;
+                        disstmp{ib}(pos) = 0.25*(diss_prop(i,j)+diss_prop(i+1,j)+diss_prop(i+1,j+1)+diss_prop(i,j+1))*area;
+                        irrevtmp{ib}(pos) = 0.25*(irrev_prop(i,j)+irrev_prop(i+1,j)+irrev_prop(i+1,j+1)+irrev_prop(i,j+1))*area;
+                        revtmp{ib}(pos) = 0.25*(rev_prop(i,j)+rev_prop(i+1,j)+rev_prop(i+1,j+1)+rev_prop(i,j+1))*area;
+            
+                    end
+                end
+            end
+            
+            for ib = 1:obj.NB
+            
+                offset = sum(prod(celldims(1:ib,:),2));
+                nentries = celldims(ib,1)*celldims(ib,2);
+            
+                cells.x(offset-nentries+1:offset) = xtmp{ib};
+                cells.y(offset-nentries+1:offset) = ytmp{ib};
+                cells.area(offset-nentries+1:offset) = areatmp{ib};
+                %cells.unst(offset-nentries+1:offset) = unsttmp{ib};
+                cells.conv(offset-nentries+1:offset) = convtmp{ib};
+                cells.diss(offset-nentries+1:offset) = disstmp{ib};
+                cells.irrev(offset-nentries+1:offset) = irrevtmp{ib};
+                cells.rev(offset-nentries+1:offset) = revtmp{ib};
+            end
+            
+            %%
+            
+            indices = cells.x > 0.75 & cells.x < 1.2 & cells.y > -0.1 & cells.y < 0.1;
+            
+            %e_unst = sum(cells.unst(indices));
+            e_s = sum(cells.conv(indices));
+            e_phi = sum(cells.diss(indices));
+            e_irrev = sum(cells.irrev(indices));
+            e_rev = sum(cells.rev(indices));
+
+        end
 
         
 

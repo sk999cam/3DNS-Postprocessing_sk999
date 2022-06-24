@@ -30,7 +30,15 @@ classdef RANSSlice < aveSlice
             obj.mod = mod;
             transstr = ["turb","trans"];
             modstr = ["bsl","mod"];
-            data = readtable(fullfile(basedir,transstr(trans+1) + "_" + modstr(mod+1),'hf2d.txt'));
+            %data = readtable(fullfile(basedir,transstr(trans+1) + "_" + modstr(mod+1),'hf2d.txt'));
+            data = readtable(fullfile(basedir,'hf2d.txt'));
+
+            if nargin < 6
+                points.x_coordinate = data.x_coordinate;
+                points.y_coordinate = data.y_coordinate;
+                points.nodenumber = data.nodenumber;
+                nodes = mesh2nodes(blk,points);
+            end
 
             if nargin > 0
                 
@@ -53,6 +61,7 @@ classdef RANSSlice < aveSlice
                         Reth = zeros(nib,njb);
                     end
 
+                    
                     nodesnow = nodes{nb};
                     for i=1:nib
                         for j=1:njb

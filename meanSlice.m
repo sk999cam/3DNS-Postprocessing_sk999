@@ -16,10 +16,14 @@ classdef meanSlice < aveSlice
         T;
         span;
         nk;
+        rous;
+        rovs;
+        k;
+        advK;
     end
 
     properties (Dependent = true)
-        
+
     end
 
     methods
@@ -29,9 +33,11 @@ classdef meanSlice < aveSlice
             if exist(fullfile(casedir,'mean_flo','nstats.txt'),'file')
                 fid = fopen(fullfile(casedir,'mean_flo','nstats.txt'));
                 nstats = str2double(fgetl(fid));
+                statstype = str2double(fgetl(fid));
                 fclose(fid);
             else
                 nstats = 17;
+                statstype = 1;
             end
             nstats
 
@@ -80,7 +86,9 @@ classdef meanSlice < aveSlice
                     p2 = zeros(blk.blockdims(nb,1),blk.blockdims(nb,2));
                     p = zeros(blk.blockdims(nb,1),blk.blockdims(nb,2));
                     T = zeros(blk.blockdims(nb,1),blk.blockdims(nb,2));
-                    ros = zeros(blk.blockdims(nb,1),blk.blockdims(nb,2));
+                    rous = zeros(blk.blockdims(nb,1),blk.blockdims(nb,2));
+                    rovs = zeros(blk.blockdims(nb,1),blk.blockdims(nb,2));
+                    rows = zeros(blk.blockdims(nb,1),blk.blockdims(nb,2));
                     diss = zeros(blk.blockdims(nb,1),blk.blockdims(nb,2));
                     qx_T = zeros(blk.blockdims(nb,1),blk.blockdims(nb,2));
                     qy_T = zeros(blk.blockdims(nb,1),blk.blockdims(nb,2));
@@ -115,9 +123,17 @@ classdef meanSlice < aveSlice
                             rovw(i,j) = A(12,n)/obj.meanTime;
     
                             p2(i,j) = A(13,n)/obj.meanTime;
-                            p(i,j) = A(14,n)/obj.meanTime;
-                            T(i,j) = A(15,n)/obj.meanTime;
-                            ros(i,j) = A(16,n)/obj.meanTime;
+
+                            if statstype == 1
+                                p(i,j) = A(14,n)/obj.meanTime;
+                                T(i,j) = A(15,n)/obj.meanTime;
+                                rous(i,j) = A(16,n)/obj.meanTime;
+                            elseif statstype == 2
+                                rous(i,j) = A(14,n)/obj.meanTime;
+                                rovs(i,j) = A(15,n)/obj.meanTime;
+                                rows(i,j) = A(16,n)/obj.meanTime;
+                            end
+
                             diss(i,j) = A(17,n)/obj.meanTime;
                             if nstats > 17
                                 qx_T(i,j) = A(18,n)/obj.meanTime;
@@ -138,7 +154,10 @@ classdef meanSlice < aveSlice
                     obj.w{nb} = rwdt./(rodt);
                     obj.Et{nb} = Etdt/obj.meanTime;
                     obj.p{nb} = (Etdt/obj.meanTime - 0.5*(rou2 + rov2 + row2))*(obj.gas.gam-1);
+                    obj.T{nb} = (obj.p{nb}.*obj.gas.gam)./(obj.gas.cp*(obj.gas.gam-1)*obj.ro{nb});
                     obj.diss{nb} = diss;
+                    obj.rous{nb} = rous;
+                    obj.rovs{nb} = rovs;
 
                     [DUDX,DUDY] = gradHO(blk.x{nb},blk.y{nb},obj.u{nb});
                     [DVDX,DVDY] = gradHO(blk.x{nb},blk.y{nb},obj.v{nb});
@@ -146,9 +165,11 @@ classdef meanSlice < aveSlice
                     UdUd = rou2./obj.ro{nb} - obj.u{nb}.*obj.u{nb};
                     UdVd = rouv./obj.ro{nb} - obj.u{nb}.*obj.v{nb};
                     VdVd = rov2./obj.ro{nb} - obj.v{nb}.*obj.v{nb};
+                    WdWd = row2./obj.ro{nb} - obj.w{nb}.*obj.w{nb};
 
                     obj.Pr{nb} = -(UdUd.*DUDX + UdVd.*(DUDY+DVDX) + VdVd.*DVDY);
                     obj.diss{nb} = diss;
+                    obj.k{nb} = 0.5*(UdUd + VdVd + WdWd);
 
                     if nstats > 17
                         obj.rev_gen_x{nb} = qx_T;
@@ -159,6 +180,12 @@ classdef meanSlice < aveSlice
                     if nstats > 21
                         obj.diss_T{nb} = diss_T;
                     end
+
+
+                [drouk_dx,~]=gradHO(blk.x{nb},blk.y{nb},obj.ro{nb}.*obj.u{nb}.*obj.k{nb});
+                [~,drovk_dy]=gradHO(blk.x{nb},blk.y{nb},obj.ro{nb}.*obj.v{nb}.*obj.k{nb});
+
+                obj.advK{nb} = drouk_dx + drovk_dy;
                 end
                 
             end
@@ -189,6 +216,9 @@ classdef meanSlice < aveSlice
 %             obj.muinf = mean(muinf,'all');
 %             obj.roinf = mean(roinf,'all');
         end
+
+        
+        
 
 %         function value = get.dsdy(obj)
 %             s = obj.oGridProp('s');
@@ -264,4 +294,6 @@ classdef meanSlice < aveSlice
 
         
     end
+
+
 end
