@@ -1,4 +1,9 @@
-function [blk] = mesh_smooth(blk,next_block,next_patch,corner,pitch,msmooths,x_prof,y_prof,ywall)
+function [blk] = mesh_smooth(blk,next_block,next_patch,corner,pitch,msmooths,x_prof,y_prof,ywall,iupdate)
+
+if nargin < 10
+    iupdate = 10;
+end
+
 
 NB = length(blk);
 for ib=1:NB
@@ -23,12 +28,12 @@ for mm=1:msmooths
     % %[blk]=make_periodic(blk,next_block,next_patch,ib,pitch);
     % end
 
-    if mod(mm,10) == 0
+    if mod(mm,iupdate) == 0
         fprintf('Iteration %d\n',mm)
     end
 
     % call multiblock to find the block boundary interfaces
-    ng = 1;
+    ng = 2;
     for ib=1:NB
         [up{ib},dn{ib}] = multiblock(blk,next_block,next_patch,ib,pitch,ng);
     end
@@ -196,9 +201,6 @@ for mm=1:msmooths
             xprof = x(:,end);
             yprof = y(:,end);
             sprof = curve_length(xprof,yprof);
-            if ib == 5 && mm == 1
-                sprof
-            end
 
             si = linspace(sprof(1),sprof(ni_new),ni_new*100);
             [sprof,iu] = unique(sprof);
@@ -213,11 +215,6 @@ for mm=1:msmooths
             
             if ((ib==5 || ib==9) && (NB == 12))
                  [~,istart]=min( sqrt( (x_prof-xprof(end)).^2 + (y_prof-yprof(end)).^2 ) );
-            end
-
-            if mm ==1
-                ib
-                istart
             end
 
             
@@ -242,18 +239,18 @@ for mm=1:msmooths
             
             %
             % now drive near wall distance to ywall
-%             for i=1:ni_new
-%                 ynorm = curve_length(xnew(i,:),ynew(i,:));
-%                 % get expansion factor and spacing
-%                 fex = fexpan(ynorm(nj_new)/ywall,nj_new);
-%                 fy = spacing(nj_new,1/fex,0);
-%                 
-%                 % fit spline to find new wall normal line
-%                 ynorm = ynorm/ynorm(nj_new);
-%                 yni = fy;
-%                 xnew(i,:) = interp1(ynorm,xnew(i,:),yni,'spline');
-%                 ynew(i,:) = interp1(ynorm,ynew(i,:),yni,'spline');
-%             end
+            for i=1:ni_new
+                ynorm = curve_length(xnew(i,:),ynew(i,:));
+                % get expansion factor and spacing
+                fex = fexpan(ynorm(nj_new)/ywall,nj_new);
+                fy = spacing(nj_new,1/fex,0);
+                
+                % fit spline to find new wall normal line
+                ynorm = ynorm/ynorm(nj_new);
+                yni = fy;
+                xnew(i,:) = interp1(ynorm,xnew(i,:),yni,'spline');
+                ynew(i,:) = interp1(ynorm,ynew(i,:),yni,'spline');
+            end
 
         end
 
@@ -391,9 +388,9 @@ for mm=1:msmooths
 
     %
     % make periodic
-%     for ib=1:NB
-%         [blk]=make_periodic(blk,next_block,next_patch,ib,pitch);
-%     end
+    for ib=1:NB
+        [blk]=make_periodic(blk,next_block,next_patch,ib,pitch);
+    end
 
 end
 

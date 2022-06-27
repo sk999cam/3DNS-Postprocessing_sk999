@@ -100,6 +100,12 @@ classdef volFlow
                     obj.w{nb} = rw./ro;
                     obj.Et{nb} = Et;
                 end
+            else
+                obj.ro = {};
+                obj.u = {};
+                obj.v = {};
+                obj.w = {};
+                obj.Et = {};
             end
         end
 
@@ -262,5 +268,99 @@ classdef volFlow
                 end
             end
         end
+
+        function newFlow = interpOntoNewGrid(obj, newblk, nk)
+
+            newFlow = volFlow();
+            ronow = {};
+
+
+            for ib = 1:obj.NB
+                sprintf('interpolting block: %d', ib)
+                if ~ismember(ib, obj.blk.oblocks)
+                    ib
+                    if obj.blk.x{ib}(1,1) < 0.2; iq = 1; else iq = size(obj.blk.x{ib},1); end
+                    if obj.blk.y{ib}(1,1) < 0; jq = 1; else jq = size(obj.blk.x{ib},2); end
+                    fic = (obj.blk.x{ib}(:,jq) - obj.blk.x{ib}(1,jq))/(obj.blk.x{ib}(end,jq) - obj.blk.x{ib}(1,jq));
+                    fjc = (obj.blk.y{ib}(iq,:) - obj.blk.y{ib}(iq,:))/(obj.blk.y{ib}(iq,end) - obj.blk.y{ib}(iq,1));
+                    fic = fic';
+
+                    
+
+                    if newblk{ib}.x(1,1) < 0.2; iq = 1; else iq = size(newblk{ib}.x,1); end
+                    if newblk{ib}.y(1,1) < 0; jq = 1; else jq = size(newblk{ib}.y,2); end
+                    fi = (newblk{ib}.x(:,jq) - newblk{ib}.x(1,jq))/(newblk{ib}.x(end,jq) - newblk{ib}.x(1,jq));
+                    fj = (newblk{ib}.y(iq,:) - newblk{ib}.y(iq,1))/(newblk{ib}.y(iq,end) - newblk{ib}.y(iq,1));
+                    fi = fi';
+                else
+                    fic = linspace(0,1,size(obj.blk.x{ib},1));
+                    fjc = linspace(0,1,size(obj.blk.x{ib},2));
+                    fi = linspace(0,1,size(newblk{ib}.x,1));
+                    fj = linspace(0,1,size(newblk{ib}.x,2));
+                end
+
+                fkc = linspace(0,1,obj.blk.nk{1});
+                fk = linspace(0,1,nk);
+
+
+                [Jc,Ic,Kc] = meshgrid(fjc,fic,fkc);
+                [J,I,K] = meshgrid(fj,fi,fk);
+
+                ronow{ib} = interp3(Jc,Ic,Kc,obj.ro{ib},J,I,K);
+                unow{ib} = interp3(Jc,Ic,Kc,obj.u{ib},J,I,K);
+                vnow{ib} = interp3(Jc,Ic,Kc,obj.v{ib},J,I,K);
+                wnow{ib} = interp3(Jc,Ic,Kc,obj.w{ib},J,I,K);
+                Etnow{ib} = interp3(Jc,Ic,Kc,obj.Et{ib},J,I,K);
+            end
+            newFlow.ro = ronow;
+            newFlow.u = unow;
+            newFlow.v = vnow;
+            newFlow.w = wnow;
+            newFlow.Et = Etnow;
+        end
+
+        function writeFlow(obj, path)
+
+
+            for nb = 1:obj.NB
+                ronow = obj.ro{nb};
+                runow = ronow*obj.u{nb};
+                rvnow = ronow*obj.v{nb};
+                rwnow = ronow*obj.w{nb};
+                Etnow = obj.Et{nb};
+
+                fpos = 0;
+                for i=1:size(obj.ro{nb},1)
+                    for j=1:size(obj.ro{nb},1)
+                        for k=1:size(obj.ro{nb},1)
+                            fpos = fpos+1;
+                            B(1, fpos) = i;
+                            B(2, fpos) = j;
+                            B(3,fpos) = k;
+
+                            A(1,n) = ronow(i,j,k);
+                            A(2,n) = runow(i,j,k);
+                            A(3,n) = rvnow(i,j,k);
+                            A(4,n) = rwnow(i,j,k);
+                            A(5,n) = Etnow(i,j,k);
+                        end
+                    end
+                end
+
+                flopath = fullfile(path,  ['flo2_' num2str(nb)]);
+                flofile = fopen(flopath,'w');
+                nodfile = fopen(fullfile(path, ['nod2_' num2str(nb)]),'w');
+                %viscpath = fullfile(casedir,  ['visc_' num2str(nb)]);
+                %viscfile = fopen(viscpath,'r');
+    
+                fwrite(flofile,A,'float64');
+                fwrite(nodfile,B,'uint32');
+    
+        
+                fclose(flofile);
+                fclose(nodfile);
+                    
+            end
+        end 
     end
 end

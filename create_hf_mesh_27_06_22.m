@@ -17,9 +17,9 @@ ywall=Lo/npp;
 NB = length(blk);
 
 % Intermediate mesh imputs
-npp = 12; % points in i,j direction for each block are set to a multiple of npp- this ensures load balancing when running on many cores
-refine_fac = 2.0; % the grid dimensions are scaled by this number in both directions
-ywall = 0.0008; % the final near wall cell height
+npp = 24; % points in i,j direction for each block are set to a multiple of npp- this ensures load balancing when running on many cores
+refine_fac = 4.0; % the grid dimensions are scaled by this number in both directions
+ywall = 0.0006; % the final near wall cell height
 msmooths = 100; % number of iterations for the poisson solver
 
 blk=mesh_refinement(blk,refine_fac,npp);
@@ -34,19 +34,20 @@ end
 disp('Intermediate gris block dims:')
 int_blk_dims
 
-npp = 48;
+npp = 56;
 refine_fac = 8.0;
-ywall = 0.0001;
+ywall = 0.000075;
 msmooths = 20;
 
 blk=mesh_refinement(blk,refine_fac,npp);
 sprintf("BL points: %d", length(blk{6}.x(1,:)));
 blk=mesh_smooth(blk,next_block,next_patch,corner,pitch,msmooths,xprof,yprof,ywall,1);
 
-blk = thin_blocks(blk, [1,2,3], [2,2,2], 2.8, 48);
-blk = thin_blocks(blk, [10,11,12], [1,1,1], 2.0, 48);
-% blk = thin_blocks(blk, [3,8,12], [3,3,3], 2.0, 48);
-% blk = thin_blocks(blk, [2,7,11], [4,4,4], 2.0, 48);
+
+blk = thin_blocks(blk, [1,2,3], [2,2,2], 8, npp);
+blk = thin_blocks(blk, [10,11,12], [1,1,1], 8, npp);
+blk = thin_blocks(blk, [3,8,12], [3,3,3], 6.0, npp);
+blk = thin_blocks(blk, [2,7,11], [4,4,4], 6.0, npp);
 
 
 
