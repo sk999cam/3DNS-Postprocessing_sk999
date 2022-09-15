@@ -14,6 +14,8 @@ classdef kSlice
         Et;
         time;
         nSlice;
+        blk;
+        velDash;
     end
 
     properties (Dependent = true)
@@ -22,18 +24,22 @@ classdef kSlice
         M;
         s;
         vel;
+        vortZ;
     end
 
     methods
-        function obj = kSlice(casedir, nSlice, blockdims, gas)
-            
-            if nargin > 0
-                obj.gam = gas.gam;
-                obj.cp = gas.cp;
-                obj.rgas = obj.cp*(1-1/obj.gam);
+        function obj = kSlice(casedir, nSlice, blk, gas)
+        
+            obj.gam = gas.gam;
+            obj.cp = gas.cp;
+            obj.rgas = obj.cp*(1-1/obj.gam);
+            blockdims = blk.blockdims;
+            obj.NB = size(blockdims,1);
+            obj.blk = blk;
+
+            if nargin > 2
                 obj.nSlice = nSlice;
     
-                obj.NB = size(blockdims,1);
                 for nb = 1:obj.NB
                     flopath = fullfile(casedir, 'k_cuts',  ['kcu2_' num2str(nb) '_' num2str(nSlice)]);
                     flofile = fopen(flopath,'r');
@@ -105,6 +111,15 @@ classdef kSlice
             value = cell(1,obj.NB);
             for nb =1:obj.NB
                 value{nb} = obj.cp*log(obj.T{nb}/300) - obj.rgas*log(obj.p{nb}/1e5);
+            end
+        end
+
+        function value = get.vortZ(obj)
+            value = cell(1,obj.NB);
+            for nb =1:obj.NB
+                [~,DUDY] = gradHO(obj.blk.x{nb},obj.blk.y{nb},obj.u{nb});
+                [DVDX,~] = gradHO(obj.blk.x{nb},obj.blk.y{nb},obj.v{nb});
+                value{nb} = DVDX-DUDY;
             end
         end
 

@@ -21,19 +21,19 @@ function nodes = mesh2nodes(blk,points)
         nody = node_ys(indsnow);
         nodnum = nodenums(indsnow);
 
-        for i=1:nib
+        parfor i=1:nib
             fprintf('Block: %d, i= %d / %d\n',nb,i,nib)
-            parfor j=1:njb
+            for j=1:njb
 
                 dx = nodx - xtmp(i,j);
                 shortlist = abs(dx) < 0.0002;
-                %dx = dx(shortlist);
+                dx = dx(shortlist);
                 dy = nody - ytmp(i,j);
                 dy = dy(shortlist);
-                nodesnow = nodenums(shortlist);
+                nodesnow = nodnum(shortlist);
 
                 [~,ind] = min(dx.^2+dy.^2);
-                nodestmp(i,j) = nodnum(ind);
+                nodestmp(i,j) = nodesnow(ind);
             end
         end
         nodes{nb} = nodestmp;

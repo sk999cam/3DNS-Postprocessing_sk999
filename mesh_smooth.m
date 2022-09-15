@@ -201,8 +201,9 @@ for mm=1:msmooths
             xprof = x(:,end);
             yprof = y(:,end);
             sprof = curve_length(xprof,yprof);
+            s_len_local = sprof(end) - sprof(1);
 
-            si = linspace(sprof(1),sprof(ni_new),ni_new*100);
+            si = linspace(sprof(1)-s_len_local*0.1,sprof(ni_new)+s_len_local*0.1,ni_new*100);
             [sprof,iu] = unique(sprof);
             xprof = xprof(iu);
             yprof = yprof(iu);

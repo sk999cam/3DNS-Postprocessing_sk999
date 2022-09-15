@@ -3,7 +3,7 @@ classdef RANSSlice < aveSlice
 
         
     properties
-        blk;
+        %blk;
         StR;            % Strain rate
         mut;            % Eddy viscosity
         k;
@@ -22,18 +22,19 @@ classdef RANSSlice < aveSlice
     end
 
     methods
-        function obj = RANSSlice(basedir, trans, mod, blk, gas, nodes)
+        function obj = RANSSlice(basedir, datafile, trans, mod, blk, gas, nodes)
             obj@aveSlice(blk, gas);
             disp('Constructing RANSSlice')
-            obj.blk = blk;
+            %obj.blk = blk;
             obj.trans = trans;
             obj.mod = mod;
             transstr = ["turb","trans"];
             modstr = ["bsl","mod"];
             %data = readtable(fullfile(basedir,transstr(trans+1) + "_" + modstr(mod+1),'hf2d.txt'));
-            data = readtable(fullfile(basedir,'hf2d.txt'));
+            %data = readtable(fullfile(basedir,'hf2d.txt'));
+            data = readtable(fullfile(basedir,datafile));
 
-            if nargin < 6
+            if nargin < 7
                 points.x_coordinate = data.x_coordinate;
                 points.y_coordinate = data.y_coordinate;
                 points.nodenumber = data.nodenumber;
@@ -120,7 +121,7 @@ classdef RANSSlice < aveSlice
             end
         end
 
-        function kPlot(obj,prop,ax,lims)
+        function contours = kPlot(obj,prop,ax,lims,label)
             
             if nargin < 3 || isempty(ax)
                 ax = gca;
@@ -128,14 +129,21 @@ classdef RANSSlice < aveSlice
             q = obj.(prop);
             hold on
             for i=1:obj.NB
-                pcolor(ax, obj.blk.x{i}, obj.blk.y{i}, q{i});
+                contours{i} = pcolor(ax, obj.blk.x{i}, obj.blk.y{i}, q{i});
             end
             shading('interp')
-            axis([-0.2 2 -0.5 0.5])
+            %axis([-0.2 2 -0.5 0.5])
             axis equal
-            cb = colorbar;
-            if nargin == 5
+            axis off
+            cb = colorbar('southoutside');
+            if prop == 'M'
+                cb.Label.String = 'M';
+            end
+            if nargin > 3 && ~isempty(lims)
                 caxis(lims)
+            end
+            if nargin > 4 && ~isempty(label)
+                cb.Label.String = label;
             end
         end
 

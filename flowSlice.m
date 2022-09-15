@@ -21,7 +21,6 @@ classdef flowSlice < handle
         n;
         ssurf;          % Surface distance fron LE
         vortZ;          % Z vorticity
-
     end
 
     properties (Dependent = true)
@@ -31,7 +30,10 @@ classdef flowSlice < handle
         s;              % Entropy ( cp*log(T/300) - R*log(p/1e5) )
         vel;            % Velocity
         mu;             % Viscosity
+        nu;             % Kinematic viscosity
         p0;
+        schlieren;      % |grad(ro)|/ro
+        cellSize;
     end
 
     methods
@@ -153,6 +155,59 @@ classdef flowSlice < handle
             end
         end
 
+        function value = get.nu(obj)
+            munow = obj.mu;
+            ronow = obj.ro;
+            for nb = 1:obj.NB
+                value{nb} = munow{nb}./ronow{nb};
+            end
+        end
+
+        
+
+        function value = get.cellSize(obj)
+            fprintf('Calculating Cell Sizes')
+            dz = obj.blk.span/(obj.blk.nk{1}-1);
+            
+            value = {};
+            for ib = 1:obj.NB
+                ni = size(obj.blk.x{ib},1);
+                nj = size(obj.blk.x{ib},2);
+                area = zeros(ni-1, nj-1);
+                for i=1:ni-1
+                    for j=1:nj-1
+                        xnow = [obj.blk.x{ib}(i,j) obj.blk.x{ib}(i+1,j) ...
+                            obj.blk.x{ib}(i+1,j+1) obj.blk.x{ib}(i,j+1)];
+                        ynow = [obj.blk.y{ib}(i,j) obj.blk.y{ib}(i+1,j) ...
+                            obj.blk.y{ib}(i+1,j+1) obj.blk.y{ib}(i,j+1)];
+                        area(i,j) = abs(polyarea(xnow,ynow));
+                    end
+                end
+                area = dz*area;
+                value{ib}(1,1) = area(1,1);
+                value{ib}(1,nj) = area(1,nj-1);
+                value{ib}(ni,1) = area(ni-1,1);
+                value{ib}(ni,nj) = area(ni-1,nj-1);
+                for i = 2:ni-1
+                    value{ib}(i,1) = 0.5*(area(i-1,1)+area(i,1));
+                    value{ib}(i,end) = 0.5*(area(i-1,end)+area(i,end));
+                end
+                for j = 2:nj-1
+                    value{ib}(1,j) = 0.5*(area(1,j-1)+area(1,j));
+                    value{ib}(end,j) = 0.5*(area(end,j-1)+area(end,j));
+                end
+                for i=2:ni-1
+                    for j=2:nj-1
+                        value{ib}(i,j) = 0.25*(area(i-1,j-1)+area(i-1,j)+area(i,j-1) +area(i,j));
+                    end
+                end
+                value{ib} = value{ib}.^(1/3);
+            end
+        end
+
+            
+
+
         function value = get.vortZ(obj)
             disp('Calculating z componant of vorticity')
             value = cell(1,obj.NB);
@@ -160,6 +215,15 @@ classdef flowSlice < handle
                 [~, dudy] = gradHO(obj.blk.x{nb},obj.blk.y{nb},obj.u{nb});
                 [dvdx, ~] = gradHO(obj.blk.x{nb},obj.blk.y{nb},obj.v{nb});
                 value{nb} = dvdx - dudy;
+            end
+        end
+
+        function value = get.schlieren(obj)
+            disp('calculating grad(ro)/ro')
+            value = cell(1,obj.NB);
+            for nb=1:obj.NB
+                [drodx, drody] = gradHO(obj.blk.x{nb},obj.blk.y{nb},obj.ro{nb});
+                value{nb} = sqrt(drodx.^2 + drody.^2)./obj.ro{nb};
             end
         end
 
@@ -257,7 +321,8 @@ classdef flowSlice < handle
             shading('interp')
             axis([-0.2 2 -0.5 0.5])
             axis equal
-            cb = colorbar;
+            axis off
+            cb = colorbar('southoutside');
             if nargin == 5
                 caxis(lims)
             end

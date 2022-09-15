@@ -1,4 +1,4 @@
-classdef jSlice
+classdef jSlice < handle
     % JSLICE Contains a 2D slice of the flow next to the blade surface
     %   Detailed explanation goes here
 
@@ -19,6 +19,7 @@ classdef jSlice
         X;
         Z;
         gas;
+        pdyn;              % Freestream dynamic pressure
     end
 
     properties (Dependent = true)
@@ -29,6 +30,7 @@ classdef jSlice
         vel;
         mu;
         tau_w;
+        cf;
     end
 
     methods
@@ -191,8 +193,10 @@ classdef jSlice
             if nargin > 4 && ~isempty(label)
                 disp('Here')
                 cb.Label.String = label;
+                cb.FontSize = 9;
             end
             pbaspect(ax, [dx dy dx]);
+            set(ax, 'FontSize', 9)
         end
 
         function value = get.mu(obj)
@@ -204,6 +208,15 @@ classdef jSlice
 
         function value = get.tau_w(obj)
             value = obj.mu.*obj.vel./obj.Y0;
+        end
+
+        function value = get.cf(obj)
+            q = obj.pdyn;
+            if ~isempty(q)
+                value = obj.tau_w./repmat(obj.pdyn',[1 size(obj.tau_w,2)]);
+            else
+                fprintf('Set jSlice dynamic pressure before calculating cf\n')
+            end
         end
     end
 end

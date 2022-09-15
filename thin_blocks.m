@@ -23,6 +23,7 @@ function blk = thin_blocks(blk, ibs, dirs, factor, npp)
             ni_new = npp*ceil(ni/npp/factor);
             fi = get_new_spacing(ni, ni_new, 1);
             fj = linspace(0,1,nj);
+            fi;
 
         elseif dir == 3
             nj_new = npp*ceil(nj/npp/factor);
@@ -73,12 +74,12 @@ function f = get_new_spacing(n1, n2, iflip)
 
     if iflip
         f = [0.0 cumsum(flip(ds*r.^(0:n2-2)))];
-        f(end) = 1.0;
+        f = f/f(end);
         
         
     else
         f = [0.0 cumsum(ds*r.^(0:n2-2))];
-        f(end) = 1.0;
+        f = f/f(end);
     end
 
 end

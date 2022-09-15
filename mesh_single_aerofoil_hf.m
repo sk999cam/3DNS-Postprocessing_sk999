@@ -45,8 +45,8 @@ blk=mesh_smooth(blk,next_block,next_patch,corner,pitch,msmooths,xprof,yprof,ywal
 
 blk = thin_blocks(blk, [1,2,3], [2,2,2], 2.8, 48);
 blk = thin_blocks(blk, [10,11,12], [1,1,1], 2.0, 48);
-% blk = thin_blocks(blk, [3,8,12], [3,3,3], 2.0, 48);
-% blk = thin_blocks(blk, [2,7,11], [4,4,4], 2.0, 48);
+blk = thin_blocks(blk, [3,8,12], [3,3,3], 2.0, 48);
+blk = thin_blocks(blk, [2,7,11], [4,4,4], 2.0, 48);
 
 
 

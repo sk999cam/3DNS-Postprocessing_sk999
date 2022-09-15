@@ -14,6 +14,7 @@ classdef aveSlice < flowSlice
 
     properties (Dependent = true)
         Msurf;          % Surface Mach No
+        Psurf;
         theta;          % Momentum thickness
         theta_incomp;
         H;              % Shape factor
@@ -33,6 +34,9 @@ classdef aveSlice < flowSlice
         dTdy;
         cf;
         Re_theta;
+        pdyn            % Dynamic pressure, 0.5*rho*V^2
+        nu_e            % Boundary layer edge viscosity
+        
     end
 
     methods
@@ -92,11 +96,18 @@ classdef aveSlice < flowSlice
             value = sqrt((2/(obj.gas.gam - 1)) * ( (pnow(:,1)/obj.p0in).^(-(obj.gas.gam-1)/obj.gas.gam) - 1));
         end
 
+        function value = get.Psurf(obj)
+            disp('Calculating surface p')
+            pnow = obj.oGridProp('p');
+            value = pnow(:,1);
+        end
+
         function value = BLedgeInd(obj, mode)
-            if nargin < 2
+            if nargin < 2 || isempty(mode)
                 mode = "sThresh";
             end
             u = obj.oGridProp('U');
+            fprintf('BL edge detection mode: %s\n',mode)
             switch mode
                 case "sGradThresh"
                     temp = obj.dsdy;
@@ -300,36 +311,38 @@ classdef aveSlice < flowSlice
 
             [q, i] = BLprof(obj,x,prop);
             size(q);
+            BLinds = obj.BLedgeInd;
             if string(prop) == "dsdy"
                 plot(ax, q, obj.yBL(i,:))
                 hold on
-                scatter(ax, q(obj.BLedgeInd(i)), obj.yBL(i,obj.BLedgeInd(i)))
+                scatter(ax, q(BLinds(i)), obj.yBL(i,BLinds(i)))
             else
                 plot(ax, q, obj.yBL(i,:)/obj.yBL(i,end))
-                hold on
-                scatter(ax, q(obj.BLedgeInd(i)), obj.yBL(i,obj.BLedgeInd(i))/obj.yBL(i,end))
+                %hold on
+                %scatter(ax, q(BLinds(i)), obj.yBL(i,BLinds(i))/obj.yBL(i,end))
             end
         end
 
-        function blDevPlot(obj, prop, ax, lims, xrange, fmt)
+        function plt = blDevPlot(obj, prop, ax, lims, xrange, fmt)
             if nargin < 3 || isempty(ax)
                 ax = gca;
             end
             q = obj.(prop);
 
             if nargin > 5 && ~isempty(fmt)
-                plot(ax,obj.xSurf,q,fmt);
+                plt = plot(ax,obj.xSurf,q,fmt);
             elseif nargin>4 && ~isempty(xrange)
-                plot(ax,obj.xSurf(obj.xSurf>xrange(1)&obj.xSurf<xrange(2)),q(obj.xSurf>xrange(1)&obj.xSurf<xrange(2)));
+                plt = plot(ax,obj.xSurf(obj.xSurf>xrange(1)&obj.xSurf<xrange(2)),q(obj.xSurf>xrange(1)&obj.xSurf<xrange(2)));
             else
-                plot(ax,obj.xSurf,q);
+                plt = plot(ax,obj.xSurf,q);
             end
             if nargin > 3 && ~isempty(lims)
                 ylim(lims);
             end
+            disp('')
         end
 
-        function plot_H_Pr_locus(obj, ax, ploteq, xrange, fmt)
+        function [locus_line, eq_line] = plot_H_Pr_locus(obj, ax, ploteq, xrange, fmt, lineColour)
             if nargin < 3 || isempty(ax)
                 ax = gca;
             end
@@ -340,19 +353,31 @@ classdef aveSlice < flowSlice
                 H = H(obj.xSurf>xrange(1)&obj.xSurf<xrange(2));
                 pr = pr(obj.xSurf>xrange(1)&obj.xSurf<xrange(2));
             end
-            
-            if nargin > 4 && ~isempty(fmt)
-                plot(ax,H,pr,fmt);
-            else
-                plot(ax,H,pr);
+            nargin
+            if nargin < 5
+                locus_line = plot(ax,H,pr);
+            elseif nargin == 5 && ~isempty(fmt)
+                locus_line = plot(ax,H,pr,fmt);
+            elseif nargin > 5 && ~isempty(lineColour) && ~isempty(fmt)
+                fprintf('Colour specified\n')
+                locus_line = plot(ax,H,pr,fmt,'Color',lineColour);
+            elseif nargin > 5 && ~isempty(lineColour) && isempty(fmt)
+                locus_line = plot(ax,H,pr,'Color',lineColour);
             end
             
             if ploteq
                 xtmp = linspace(1,3,51);% linspace(min(H),max(H),51);
                 ytmp = 0.02456*((xtmp-1)./xtmp).^3;
                 hold on
-                plot(xtmp,ytmp,'k:')
+                eq_line = plot(xtmp,ytmp,'k:');
+                legend([eq_line],'Equilibrium line','Location','northwest')
             end
+            xlabel('H_{incomp}')
+            ylabel('Pr')
+            set(gca,'FontSize',12)
+            disp('')
+            C = colororder;
+            
         end
 
         function value = get.blPr(obj)
@@ -393,6 +418,17 @@ classdef aveSlice < flowSlice
             value = obj.tau_w'./(0.5*roe.*Ue.*Ue);
         end
 
+        function value = get.pdyn(obj)
+            inds = obj.BLedgeInd;
+            ronow = obj.oGridProp('ro');
+            Unow = obj.U;
+            for i=1:length(inds)
+                roe(i) = ronow(i,inds(i));
+                Ue(i) = Unow(i,inds(i));
+            end
+            value = 0.5*roe.*Ue.*Ue;
+        end
+
         function value = get.tau_w(obj)
 
             Unow = obj.U(:,2);
@@ -409,7 +445,7 @@ classdef aveSlice < flowSlice
             ds(end+1) = ds(end);
             ds = ds';
             size(ds)
-            dz = ones(size(dy))*obj.span/(obj.nk-1);
+            
 
             munow = obj.oGridProp('mu');
             munow = munow(:,2);
@@ -418,7 +454,12 @@ classdef aveSlice < flowSlice
 
             xplus = ds.*sqrt(abs(obj.tau_w).*ronow)./munow;
             yplus = dy.*sqrt(abs(obj.tau_w).*ronow)./munow;
-            zplus = dz.*sqrt(abs(obj.tau_w).*ronow)./munow;
+            if any(strcmp(properties(obj), 'span'))
+                dz = ones(size(dy))*obj.span/(obj.nk-1);
+                zplus = dz.*sqrt(abs(obj.tau_w).*ronow)./munow;
+            else
+                zplus = [];
+            end
         end
         
         function blContour(obj, prop, ax, lims, fmt)
@@ -443,8 +484,43 @@ classdef aveSlice < flowSlice
 
         end
 
+        function plotWallCoords(obj)
 
+            [xplus,yplus,zplus] = obj.wall_coords_offset;
+            yyaxis left
+            plot(obj.xSurf,yplus);
+            hold on
+            yyaxis right
+            plot(obj.xSurf,xplus);
+            plot(obj.xSurf,zplus);
+            xlabel('x/c')
+            legend('y^+','x^+','z^+')
 
+        end
+
+        function plotYplus(obj)
+
+            [~,yplus,~] = obj.wall_coords_offset;
+            plot(obj.xSurf,yplus,'k-');
+            xlabel('x/c')
+            ylabel('y^+')
+            grid on
+            pbaspect([1 0.5 1])
+
+        end
+
+        function value = get.nu_e(obj)
+            Tnow = obj.oGridProp('T');
+            ronow = obj.oGridProp('ro');
+            inds = obj.BLedgeInd;
+            for i=1:size(Tnow,1)
+                Te(i) = Tnow(i,inds(i));
+                roe(i) = ronow(i,inds(i));
+            end
+            mu_e = obj.gas.mu_ref*(Te/obj.gas.mu_tref).^(3/2).*...
+                (obj.gas.mu_tref+obj.gas.mu_cref)./(Te+obj.gas.mu_cref);
+            value = mu_e./roe;
+        end
         
     end
 end

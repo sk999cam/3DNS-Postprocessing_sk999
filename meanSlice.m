@@ -20,10 +20,17 @@ classdef meanSlice < aveSlice
         rovs;
         k;
         advK;
+        e_s = [];
+        e_phi = [];
+        e_irrev = [];
+        e_rev = [];
+        e_Pr = [];
+        e_diss = [];
     end
 
     properties (Dependent = true)
-
+        eta_Kol         % Kolmogorov scale
+        cellSize_Kol;   % Cell size/ Kolmogorov scale
     end
 
     methods
@@ -39,11 +46,11 @@ classdef meanSlice < aveSlice
                 nstats = 17;
                 statstype = 1;
             end
-            nstats
+            nstats;
 
             if nargin > 0
 
-                fullfile(casedir, 'mean_flo', 'mean_time.txt');
+                fullfile(casedir, 'mean_flo', 'mean_time.txt')
                 fid = fopen(fullfile(casedir, 'mean_flo', 'mean_time.txt'));
                 while ~feof(fid) % Use lastest mean files
                     temp=fgetl(fid);
@@ -60,6 +67,7 @@ classdef meanSlice < aveSlice
                     fullfile(casedir, 'mean_flo', ['mnod2_' num2str(nb) '_' num2str(obj.nMean)]);
                     nodfile = fopen(fullfile(casedir, 'mean_flo', ['mnod2_' num2str(nb) '_' num2str(obj.nMean)]),'r');
                     A = fread(flofile,inf,'float64');
+%                     fprintf('%d %d %d\n',nb, length(A), nstats)
                     A = reshape(A,nstats,length(A)/nstats);
                     
                     B = fread(nodfile,inf,'uint32');
@@ -217,8 +225,36 @@ classdef meanSlice < aveSlice
 %             obj.roinf = mean(roinf,'all');
         end
 
+        function addSlice(obj, newSlice)
+            props2add = {"Pr", "diss", "rev_gen_x", "rev_gen_y", "irrev_gen", "diss_T", "p", "T", ...
+                "rous", "rovs", "k", "advK", "ro", "u", "v", "w", "Et"};
+            tot_time = obj.meanTime + newSlice.meanTime;
+
+            for ip = 1:length(props2add)
+                for ib = 1:obj.NB
+                    obj.(props2add{ip}){ib} = (obj.(props2add{ip}){ib}*obj.meanTime + ...
+                        newSlice.(props2add{ip}){ib}*newSlice.meanTime)/tot_time;
+                end
+            end
+            obj.meanTime = tot_time;
+        end
         
-        
+        function value = get.eta_Kol(obj)
+            nunow = obj.nu;
+            dissnow = obj.diss;
+            for ib = 1:obj.NB
+                disstmp = max(1e-18*ones(size(dissnow{ib})), dissnow{ib});
+                value{ib} = ((nunow{ib}.^3)./disstmp).^0.25;
+            end
+        end
+
+        function value = get.cellSize_Kol(obj)
+            etanow = obj.eta_Kol;
+            csnow = obj.cellSize;
+            for ib = 1:obj.NB
+                value{ib} = csnow{ib}./etanow{ib};
+            end
+        end
 
 %         function value = get.dsdy(obj)
 %             s = obj.oGridProp('s');
@@ -291,7 +327,7 @@ classdef meanSlice < aveSlice
 %         function value = get.Res(obj)
 %             value = obj.ssurf*obj.Uinf*obj.roinf/obj.muinf;
 %         end
-
+        
         
     end
 
