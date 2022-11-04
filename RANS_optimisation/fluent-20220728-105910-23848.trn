@@ -1,0 +1,313 @@
+
+              Welcome to ANSYS Fluent 2021 R2
+
+              Copyright 1987-2021 ANSYS, Inc. All Rights Reserved.
+              Unauthorized use, distribution or duplication is prohibited.
+              This product is subject to U.S. laws governing export and re-export.
+              For full Legal Notice, see documentation.
+
+Build Time: May 28 2021 13:54:56 EDT  Build Id: 10201  
+ 
+
+     --------------------------------------------------------------
+     This is an academic version of ANSYS FLUENT. Usage of this product
+     license is limited to the terms and conditions specified in your ANSYS
+     license form, additional terms section.
+     --------------------------------------------------------------
+Host spawning Node 0 on machine "WL-CH-009" (win64).
+
+-------------------------------------------------------------------------------
+ID    Hostname   Core   O.S.         PID    Vendor                       
+-------------------------------------------------------------------------------
+n31   WL-CH-009  32/36  Windows-x64  41916  Intel(R) Xeon(R) W-2295      
+n30   WL-CH-009  31/36  Windows-x64  40720  Intel(R) Xeon(R) W-2295      
+n29   WL-CH-009  30/36  Windows-x64  15872  Intel(R) Xeon(R) W-2295      
+n28   WL-CH-009  29/36  Windows-x64  1100   Intel(R) Xeon(R) W-2295      
+n27   WL-CH-009  28/36  Windows-x64  45296  Intel(R) Xeon(R) W-2295      
+n26   WL-CH-009  27/36  Windows-x64  44436  Intel(R) Xeon(R) W-2295      
+n25   WL-CH-009  26/36  Windows-x64  40536  Intel(R) Xeon(R) W-2295      
+n24   WL-CH-009  25/36  Windows-x64  20692  Intel(R) Xeon(R) W-2295      
+n23   WL-CH-009  24/36  Windows-x64  41768  Intel(R) Xeon(R) W-2295      
+n22   WL-CH-009  23/36  Windows-x64  41616  Intel(R) Xeon(R) W-2295      
+n21   WL-CH-009  22/36  Windows-x64  12700  Intel(R) Xeon(R) W-2295      
+n20   WL-CH-009  21/36  Windows-x64  43980  Intel(R) Xeon(R) W-2295      
+n19   WL-CH-009  20/36  Windows-x64  35892  Intel(R) Xeon(R) W-2295      
+n18   WL-CH-009  19/36  Windows-x64  29592  Intel(R) Xeon(R) W-2295      
+n17   WL-CH-009  18/36  Windows-x64  24816  Intel(R) Xeon(R) W-2295      
+n16   WL-CH-009  17/36  Windows-x64  24596  Intel(R) Xeon(R) W-2295      
+n15   WL-CH-009  16/36  Windows-x64  21888  Intel(R) Xeon(R) W-2295      
+n14   WL-CH-009  15/36  Windows-x64  31648  Intel(R) Xeon(R) W-2295      
+n13   WL-CH-009  14/36  Windows-x64  35296  Intel(R) Xeon(R) W-2295      
+n12   WL-CH-009  13/36  Windows-x64  25428  Intel(R) Xeon(R) W-2295      
+-------------------------------------------------------------------------------
+ID    Hostname   Core   O.S.         PID    Vendor                       
+-------------------------------------------------------------------------------
+n11   WL-CH-009  12/36  Windows-x64  33612  Intel(R) Xeon(R) W-2295      
+n10   WL-CH-009  11/36  Windows-x64  19336  Intel(R) Xeon(R) W-2295      
+n9    WL-CH-009  10/36  Windows-x64  6632   Intel(R) Xeon(R) W-2295      
+n8    WL-CH-009  9/36   Windows-x64  37976  Intel(R) Xeon(R) W-2295      
+n7    WL-CH-009  8/36   Windows-x64  44400  Intel(R) Xeon(R) W-2295      
+n6    WL-CH-009  7/36   Windows-x64  44292  Intel(R) Xeon(R) W-2295      
+n5    WL-CH-009  6/36   Windows-x64  43172  Intel(R) Xeon(R) W-2295      
+n4    WL-CH-009  5/36   Windows-x64  36532  Intel(R) Xeon(R) W-2295      
+n3    WL-CH-009  4/36   Windows-x64  21016  Intel(R) Xeon(R) W-2295      
+n2    WL-CH-009  3/36   Windows-x64  23444  Intel(R) Xeon(R) W-2295      
+n1    WL-CH-009  2/36   Windows-x64  27184  Intel(R) Xeon(R) W-2295      
+n0*   WL-CH-009  1/36   Windows-x64  25888  Intel(R) Xeon(R) W-2295      
+host  WL-CH-009         Windows-x64  37200  Intel(R) Xeon(R) W-2295      
+
+MPI Option Selected: intel
+Selected system interconnect: default
+-------------------------------------------------------------------------------
+
+Cleanup script file is E:\\MATLAB\\RANS_optimisation\\cleanup-fluent-WL-CH-009-37200.bat
+
+Posting ANSYS Product Improvement Program startup data
+Done.
+
+Reading journal file E:\MATLAB\RANS_optimisation\run6\fluent_input.jou...
+
+> /sync-chdir E:\MATLAB\RANS_optimisation\run6
+
+> /file/read-case "grid.msh"
+Reading "grid.msh"...
+
+Buffering for file scan...
+
+  112722 quadrilateral cells, zone  9.
+  224998 2D interior faces, zone  2.
+Warning: Reversing 238 faces, zone  2.
+     237 2D pressure-inlet faces, zone  3.
+Warning: Reversing 237 faces, zone  3.
+     477 2D pressure-outlet faces, zone  4.
+Warning: Reversing 477 faces, zone  4.
+     477 2D pressure-outlet faces, zone  5.
+     207 2D pressure-outlet faces, zone  6.
+     254 2D wall faces, zone  7.
+Warning: Reversing 14 faces, zone  7.
+     252 2D wall faces, zone  8.
+Warning: Reversing 224 faces, zone  8.
+  113674 nodes.
+
+Building...
+     mesh
+	auto partitioning mesh by Metis (fast),
+	distributing mesh
+		parts................................,
+		faces................................,
+		nodes................................,
+		cells................................,
+        bandwidth reduction using Reverse Cuthill-McKee: 2716/83 = 32.7229
+     materials,
+     interface,
+     domains,
+     zones,
+	fluid-9
+	wall-8
+	wall-7
+	pressure-outlet-6
+	pressure-outlet-5
+	pressure-outlet-4
+	pressure-inlet-3
+	interior-2
+     parallel,
+Done.
+
+Preparing mesh for display...
+Done.
+ 
+
+> /define/boundary-conditions/modify-zones/zone-name 3 inlet 
+
+> /define/boundary-conditions/modify-zones/zone-name 4 upper 
+
+> /define/boundary-conditions/modify-zones/zone-name 5 lower 
+
+> /define/boundary-conditions/modify-zones/zone-name 6 outlet
+
+> /define/boundary-conditions/modify-zones/zone-name 7 upper-blade
+
+> /define/boundary-conditions/modify-zones/zone-name 8 lower-blade
+
+> /define/materials/change-create air air air is a fluid
+yes 
+Density
+ideal-gas no data required.
+
+yes 
+Cp (Specific Heat)
+constant 1005 
+yes 
+Thermal Conductivity
+expression "DynamicViscosity*1005 [J/(kg K)]/0.72"
+ yes 
+Viscosity
+sutherland three-coefficient-method 5.83247e-04 273 110.4 
+no no no
+
+Note: Enabling energy equation as required by material density method.
+(cx-use-window-id 51)
+
+The application is busy.
+Please wait a moment.
+
+> /define/operating-conditions/operating-pressure 0
+
+> /define/models/viscous/kw-sst? yes
+
+> /define/boundary-conditions/zone-type inlet pressure-inlet 
+
+> /define/boundary-conditions/pressure-inlet (inlet)
+inlet yes no 74575.2 no 46984 no 300 no yes no no yes 0.5 1
+
+> /define/boundary-conditions/zone-type outlet pressure-outlet 
+
+> /define/boundary-conditions/bc-settings/pressure-outlet 0. 65 
+
+> /define/boundary-conditions/pressure-outlet (outlet upper lower)
+outlet yes no 46984 no 300 no yes no no yes 0.5 1 yes no no
+
+> /define/boundary-conditions/copy-bc outlet (upper lower)Copy outlet boundary conditions to lower
+Copy outlet boundary conditions to upper
+
+
+> /define/boundary-conditions/wall (upper-blade lower-blade)
+upper-blade 0 no 0 no no no 0 no no no no 0 no 0.5 no 1
+
+> /define/boundary-conditions/copy-bc upper-blade (lower-blade)Copy upper-blade boundary conditions to lower-blade
+
+
+> /define/models/solver/densit-based-implicit yes
+
+> /file/read-data E:\MATLAB\RANS_optimisation\clean.dat
+
+Reading "E:\MATLAB\RANS_optimisation\clean.dat"...
+
+
+
+Parallel variables...
+Done.
+(cx-use-window-id 51)
+
+> ;/solve/initialize/initialize-flow
+;/solve/initialize/compute-defaults/pressure-inlet inlet
+;/solve/initialize/initialize-flow yes
+;/solve/initialize/hyb-initialization
+/solve/iterate 2000
+
+  iter  continuity  x-velocity  y-velocity      energy           k       omega     time/iter
+  2419  9.9521e-04  3.5719e-04  6.8654e-05  9.7828e-04  1.7105e-04  4.2984e-05  0:00:00 2000
+
+ Reversed flow on 2 faces (1.0% area) of pressure-outlet 4.
+
+ Reversed flow on 2 faces (1.0% area) of pressure-outlet 5.
+  2420  2.5171e-02  2.4296e-02  6.4804e-03  2.5123e-02  3.5017e-04  3.4709e-03  0:00:00 1999
+
+ Reversed flow on 2 faces (1.0% area) of pressure-outlet 4.
+
+ Reversed flow on 2 faces (1.0% area) of pressure-outlet 5.
+  2421  3.2837e-02  2.2328e-02  8.3787e-03  3.2715e-02  3.4007e-04  3.1430e-03  0:00:00 1998
+
+ Reversed flow on 2 faces (1.0% area) of pressure-outlet 4.
+
+ Reversed flow on 2 faces (1.0% area) of pressure-outlet 5.
+  2422  3.2370e-02  1.9090e-02  1.0640e-02  3.2443e-02  3.2970e-04  2.4814e-03  0:00:00 1997
+
+ Reversed flow on 2 faces (1.0% area) of pressure-outlet 4.
+
+ Reversed flow on 2 faces (1.0% area) of pressure-outlet 5.
+  2423  2.7592e-02  1.5350e-02  1.2846e-02  2.7734e-02  3.1617e-04  1.8845e-03  0:33:16 1996
+
+ Reversed flow on 2 faces (1.0% area) of pressure-outlet 4.
+
+ Reversed flow on 2 faces (1.0% area) of pressure-outlet 5.
+  2424  2.1627e-02  1.1792e-02  1.3709e-02  2.1700e-02  3.0002e-04  1.7167e-03  0:26:36 1995
+
+ Reversed flow on 2 faces (1.0% area) of pressure-outlet 4.
+
+ Reversed flow on 2 faces (1.0% area) of pressure-outlet 5.
+  2425  1.6364e-02  8.9452e-03  1.2761e-02  1.6319e-02  2.8295e-04  1.5256e-03  0:21:16 1994
+
+ Reversed flow on 2 faces (1.0% area) of pressure-outlet 4.
+
+ Reversed flow on 2 faces (1.0% area) of pressure-outlet 5.
+  2426  1.2378e-02  6.8593e-03  1.0827e-02  1.2220e-02  2.6665e-04  1.3195e-03  0:17:00 1993
+
+ Reversed flow on 2 faces (1.0% area) of pressure-outlet 4.
+
+ Reversed flow on 2 faces (1.0% area) of pressure-outlet 5.
+  2427  9.5864e-03  5.3941e-03  8.7211e-03  9.3428e-03  2.5157e-04  1.1560e-03  0:13:36 1992
+
+ Reversed flow on 2 faces (1.0% area) of pressure-outlet 4.
+
+ Reversed flow on 2 faces (1.0% area) of pressure-outlet 5.
+  2428  7.7329e-03  4.3770e-03  6.8786e-03  7.4337e-03  2.3789e-04  1.0220e-03  0:10:52 1991
+
+ Reversed flow on 2 faces (1.0% area) of pressure-outlet 4.
+
+ Reversed flow on 2 faces (1.0% area) of pressure-outlet 5.
+  2429  6.5365e-03  3.6425e-03  5.3919e-03  6.2084e-03  2.2582e-04  9.2094e-04  0:08:42 1990
+
+ Reversed flow on 2 faces (1.0% area) of pressure-outlet 4.
+
+ Reversed flow on 2 faces (1.0% area) of pressure-outlet 5.
+
+  iter  continuity  x-velocity  y-velocity      energy           k       omega     time/iter
+  2430  5.7875e-03  3.1178e-03  4.2750e-03  5.4506e-03  2.1568e-04  8.3176e-04  0:13:35 1989
+
+ Reversed flow on 2 faces (1.0% area) of pressure-outlet 4.
+
+ Reversed flow on 2 faces (1.0% area) of pressure-outlet 5.
+  2431  5.3422e-03  2.7543e-03  3.4764e-03  5.0087e-03  2.0760e-04  7.5622e-04  0:10:52 1988
+
+ Reversed flow on 2 faces (1.0% area) of pressure-outlet 4.
+
+ Reversed flow on 2 faces (1.0% area) of pressure-outlet 5.
+  2432  5.1121e-03  2.5349e-03  2.9300e-03  4.7866e-03  2.0162e-04  7.0166e-04  0:08:41 1987
+
+ Reversed flow on 2 faces (1.0% area) of pressure-outlet 4.
+
+ Reversed flow on 2 faces (1.0% area) of pressure-outlet 5.
+  2433  5.0455e-03  2.4385e-03  2.5552e-03  4.7288e-03  1.9833e-04  6.7410e-04  0:06:57 1986
+
+ Reversed flow on 2 faces (1.0% area) of pressure-outlet 4.
+
+ Reversed flow on 2 faces (1.0% area) of pressure-outlet 5.
+  2434  5.1107e-03  2.4493e-03  2.3008e-03  4.8014e-03  1.9624e-04  6.6636e-04  0:05:33 1985
+
+ Reversed flow on 2 faces (1.0% area) of pressure-outlet 4.
+
+ Reversed flow on 2 faces (1.0% area) of pressure-outlet 5.
+  2435  5.2772e-03  2.5377e-03  2.1215e-03  4.9730e-03  1.9573e-04  6.7318e-04  0:04:26 1984
+
+ Reversed flow on 2 faces (1.0% area) of pressure-outlet 4.
+
+ Reversed flow on 2 faces (1.0% area) of pressure-outlet 5.
+  2436  5.5255e-03  2.6884e-03  1.9861e-03  5.2239e-03  1.9727e-04  6.8511e-04  0:03:33 1983
+
+ Reversed flow on 2 faces (1.0% area) of pressure-outlet 4.
+
+ Reversed flow on 2 faces (1.0% area) of pressure-outlet 5.
+  2437  5.8423e-03  2.8814e-03  1.8782e-03  5.5411e-03  2.0092e-04  7.0106e-04  0:02:50 1982
+
+ Reversed flow on 2 faces (1.0% area) of pressure-outlet 4.
+
+ Reversed flow on 2 faces (1.0% area) of pressure-outlet 5.
+  2438  6.2138e-03  3.0908e-03  1.7880e-03  5.9102e-03  2.0573e-04  7.2526e-04  0:02:16 1981
+
+ Reversed flow on 2 faces (1.0% area) of pressure-outlet 4.
+
+ Reversed flow on 2 faces (1.0% area) of pressure-outlet 5.
+  2439  6.6313e-03  3.3023e-03  1.7146e-03  6.3225e-03  2.1119e-04  7.5577e-04  0:01:49 1980
+Done.
+
+Warning: An error or interrupt occurred while reading the journal file.
+Some commands may not have been completed.
+
+
+> (cx-gui-do cx-activate-item "Information*OK")
+/exit y
+
+Posting ANSYS Product Improvement Program performance data 
+Done.
+(cx-gui-do cx-activate-item "Question*OK")

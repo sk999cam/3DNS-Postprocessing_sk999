@@ -166,10 +166,11 @@ for i=1:length(o_blocks)
         x_tmp = x_tmp(end:-1:1,:);
         y_tmp = y_tmp(end:-1:1,:);
     end
-    x_grid = [x_grid x_tmp'];
-    y_grid = [y_grid y_tmp'];
+    x_grid = [x_grid; x_tmp];
+    y_grid = [y_grid; y_tmp];
 end
-x = x_grid(1,:);
+x = x_grid(:,1);
+y = y_grid(:,1);
 [~,iLE] = min(x);
 [~,iTE] = max(x);
 iMid = round(0.5*(iLE+iTE));
@@ -177,13 +178,13 @@ x = x(iLE:iTE);
 tmp = iLE:iTE;
 [x, inds, ~] = unique(x);
 inds = tmp(inds);
-dy = sqrt((x_grid(2,inds)-x_grid(1,inds)).^2 + (y_grid(2,inds) - y_grid(1,inds)).^2);
-dx = sqrt((x_grid(1,inds(2:end)) - x_grid(1,inds(1:end-1))).^2 + (y_grid(1,inds(2:end)) - y_grid(1,inds(1:end-1))).^2);
+dy = sqrt((x_grid(inds,2)-x_grid(inds,1)).^2 + (y_grid(inds,2) - y_grid(inds,1)).^2);
+dx = sqrt((x_grid(inds(2:end),1) - x_grid(inds(1:end-1),1)).^2 + (y_grid(inds(2:end),1) - y_grid(inds(1:end-1),1)).^2);
 span = 0.1;
 dz = span/(nk-1);
 
-x_cut = x_grid(:,iMid);
-y_cut = y_grid(:,iMid);
+x_cut = x_grid(iMid,:);
+y_cut = y_grid(iMid,:);
 dy_bl = sqrt((x_cut(2:end)-x_cut(1:end-1)).^2 + (y_cut(2:end) - y_cut(1:end-1)).^2);
 expansion_r = dy_bl(2:end)./dy_bl(1:end-1);
 

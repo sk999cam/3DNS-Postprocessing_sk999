@@ -1,0 +1,4 @@
+;Journal file automatically created by Fluent!
+
+
+(read-case-base "E:/MATLAB/RANS_optimisation/grid1/grid.msh")

@@ -1,0 +1,469 @@
+
+              Welcome to ANSYS Fluent 2021 R2
+
+              Copyright 1987-2021 ANSYS, Inc. All Rights Reserved.
+              Unauthorized use, distribution or duplication is prohibited.
+              This product is subject to U.S. laws governing export and re-export.
+              For full Legal Notice, see documentation.
+
+Build Time: May 28 2021 13:54:56 EDT  Build Id: 10201  
+ 
+
+     --------------------------------------------------------------
+     This is an academic version of ANSYS FLUENT. Usage of this product
+     license is limited to the terms and conditions specified in your ANSYS
+     license form, additional terms section.
+     --------------------------------------------------------------
+Host spawning Node 0 on machine "WL-CH-009" (win64).
+
+-------------------------------------------------------------------------------
+ID    Hostname   Core   O.S.         PID    Vendor                       
+-------------------------------------------------------------------------------
+n31   WL-CH-009  32/36  Windows-x64  31740  Intel(R) Xeon(R) W-2295      
+n30   WL-CH-009  31/36  Windows-x64  44212  Intel(R) Xeon(R) W-2295      
+n29   WL-CH-009  30/36  Windows-x64  44024  Intel(R) Xeon(R) W-2295      
+n28   WL-CH-009  29/36  Windows-x64  30328  Intel(R) Xeon(R) W-2295      
+n27   WL-CH-009  28/36  Windows-x64  24340  Intel(R) Xeon(R) W-2295      
+n26   WL-CH-009  27/36  Windows-x64  43536  Intel(R) Xeon(R) W-2295      
+n25   WL-CH-009  26/36  Windows-x64  29192  Intel(R) Xeon(R) W-2295      
+n24   WL-CH-009  25/36  Windows-x64  2372   Intel(R) Xeon(R) W-2295      
+n23   WL-CH-009  24/36  Windows-x64  42324  Intel(R) Xeon(R) W-2295      
+n22   WL-CH-009  23/36  Windows-x64  38428  Intel(R) Xeon(R) W-2295      
+n21   WL-CH-009  22/36  Windows-x64  24748  Intel(R) Xeon(R) W-2295      
+n20   WL-CH-009  21/36  Windows-x64  31440  Intel(R) Xeon(R) W-2295      
+n19   WL-CH-009  20/36  Windows-x64  12300  Intel(R) Xeon(R) W-2295      
+n18   WL-CH-009  19/36  Windows-x64  41180  Intel(R) Xeon(R) W-2295      
+n17   WL-CH-009  18/36  Windows-x64  35660  Intel(R) Xeon(R) W-2295      
+n16   WL-CH-009  17/36  Windows-x64  29932  Intel(R) Xeon(R) W-2295      
+n15   WL-CH-009  16/36  Windows-x64  39756  Intel(R) Xeon(R) W-2295      
+n14   WL-CH-009  15/36  Windows-x64  35496  Intel(R) Xeon(R) W-2295      
+n13   WL-CH-009  14/36  Windows-x64  3612   Intel(R) Xeon(R) W-2295      
+n12   WL-CH-009  13/36  Windows-x64  19168  Intel(R) Xeon(R) W-2295      
+-------------------------------------------------------------------------------
+ID    Hostname   Core   O.S.         PID    Vendor                       
+-------------------------------------------------------------------------------
+n11   WL-CH-009  12/36  Windows-x64  34448  Intel(R) Xeon(R) W-2295      
+n10   WL-CH-009  11/36  Windows-x64  38988  Intel(R) Xeon(R) W-2295      
+n9    WL-CH-009  10/36  Windows-x64  6532   Intel(R) Xeon(R) W-2295      
+n8    WL-CH-009  9/36   Windows-x64  27520  Intel(R) Xeon(R) W-2295      
+n7    WL-CH-009  8/36   Windows-x64  8672   Intel(R) Xeon(R) W-2295      
+n6    WL-CH-009  7/36   Windows-x64  45156  Intel(R) Xeon(R) W-2295      
+n5    WL-CH-009  6/36   Windows-x64  28732  Intel(R) Xeon(R) W-2295      
+n4    WL-CH-009  5/36   Windows-x64  8508   Intel(R) Xeon(R) W-2295      
+n3    WL-CH-009  4/36   Windows-x64  19184  Intel(R) Xeon(R) W-2295      
+n2    WL-CH-009  3/36   Windows-x64  35520  Intel(R) Xeon(R) W-2295      
+n1    WL-CH-009  2/36   Windows-x64  44768  Intel(R) Xeon(R) W-2295      
+n0*   WL-CH-009  1/36   Windows-x64  24408  Intel(R) Xeon(R) W-2295      
+host  WL-CH-009         Windows-x64  29508  Intel(R) Xeon(R) W-2295      
+
+MPI Option Selected: intel
+Selected system interconnect: default
+-------------------------------------------------------------------------------
+
+Cleanup script file is E:\\MATLAB\\RANS_optimisation\\cleanup-fluent-WL-CH-009-29508.bat
+
+Posting ANSYS Product Improvement Program startup data
+Done.
+
+Reading journal file E:\MATLAB\RANS_optimisation\run6\fluent_input.jou...
+
+> /sync-chdir E:\MATLAB\RANS_optimisation\run6
+
+> /file/read-case "grid.msh"
+Reading "grid.msh"...
+
+Buffering for file scan...
+
+  112722 quadrilateral cells, zone  9.
+  224998 2D interior faces, zone  2.
+Warning: Reversing 238 faces, zone  2.
+     237 2D pressure-inlet faces, zone  3.
+Warning: Reversing 237 faces, zone  3.
+     477 2D pressure-outlet faces, zone  4.
+Warning: Reversing 477 faces, zone  4.
+     477 2D pressure-outlet faces, zone  5.
+     207 2D pressure-outlet faces, zone  6.
+     401 2D wall faces, zone  7.
+Warning: Reversing 133 faces, zone  7.
+     105 2D wall faces, zone  8.
+Warning: Reversing 105 faces, zone  8.
+  113674 nodes.
+
+Building...
+     mesh
+	auto partitioning mesh by Metis (fast),
+	distributing mesh
+		parts................................,
+		faces................................,
+		nodes................................,
+		cells................................,
+        bandwidth reduction using Reverse Cuthill-McKee: 2716/83 = 32.7229
+Info: The mesh contains elements that are invalid or of poor quality.
+
+      A different numerical scheme will be applied to these elements,
+      which may affect the quality of the solution. It is recommended
+      that you consider removing the invalid and poor quality elements
+      in the mesh.
+
+      For more information on the invalid and poor quality elements,
+      please use the following TUI commands:
+
+      /mesh/check
+      /mesh/repair-improve/report-poor-elements.
+WARNING: 1580 cells with non-positive volume detected.
+     materials,
+     interface,
+     domains,
+     zones,
+	fluid-9
+	wall-8
+	wall-7
+	pressure-outlet-6
+	pressure-outlet-5
+	pressure-outlet-4
+	pressure-inlet-3
+	interior-2
+     parallel,
+Done.
+
+Preparing mesh for display...
+Done.
+ 
+
+> /define/boundary-conditions/modify-zones/zone-name 3 inlet 
+
+> /define/boundary-conditions/modify-zones/zone-name 4 upper 
+
+> /define/boundary-conditions/modify-zones/zone-name 5 lower 
+
+> /define/boundary-conditions/modify-zones/zone-name 6 outlet
+
+> /define/boundary-conditions/modify-zones/zone-name 7 upper-blade
+
+> /define/boundary-conditions/modify-zones/zone-name 8 lower-blade
+
+> /define/materials/change-create air air air is a fluid
+yes 
+Density
+ideal-gas no data required.
+
+yes 
+Cp (Specific Heat)
+constant 1005 
+yes 
+Thermal Conductivity
+expression "DynamicViscosity*1005 [J/(kg K)]/0.72"
+ yes 
+Viscosity
+sutherland three-coefficient-method 5.83247e-04 273 110.4 
+no no no
+
+Note: Enabling energy equation as required by material density method.
+
+> /define/operating-conditions/operating-pressure 0
+
+> /define/models/viscous/kw-sst? yes
+
+> /define/boundary-conditions/zone-type inlet pressure-inlet 
+
+> /define/boundary-conditions/pressure-inlet (inlet)
+inlet yes no 74575.2 no 46984 no 300 no yes no no yes 0.5 1
+
+> /define/boundary-conditions/zone-type outlet pressure-outlet 
+
+> /define/boundary-conditions/bc-settings/pressure-outlet 0. 65 
+
+> /define/boundary-conditions/pressure-outlet (outlet upper lower)
+outlet yes no 46984 no 300 no yes no no yes 0.5 1 yes no no
+
+> /define/boundary-conditions/copy-bc outlet (upper lower)Copy outlet boundary conditions to lower
+Copy outlet boundary conditions to upper
+
+
+> /define/boundary-conditions/wall (upper-blade lower-blade)
+upper-blade 0 no 0 no no no 0 no no no no 0 no 0.5 no 1
+
+> /define/boundary-conditions/copy-bc upper-blade (lower-blade)Copy upper-blade boundary conditions to lower-blade
+
+
+> /define/models/solver/densit-based-implicit yes
+
+> /file/read-data E:\MATLAB\RANS_optimisation\clean.dat
+
+Reading "E:\MATLAB\RANS_optimisation\clean.dat"...
+
+
+
+Warning: case and data files are inconsistent; zone 7, case [1399,1799], data [1399,1652]
+Warning: case and data files are inconsistent; zone 8, case [1800,1904], data [1653,1904]
+Warning: case and data files are inconsistent; zone 7, case [1399,1799], data [1399,1652]
+Warning: case and data files are inconsistent; zone 8, case [1800,1904], data [1653,1904]
+
+WARNING:Warning: case and data files are inconsistent; zone 7, case [1399,1799], data [1399,1652]
+Warning: case and data files are inconsistent; zone 8, case [1800,1904], data [1653,1904]
+Warning: case and data files are inconsistent; zone 7, case [1399,1799], data [1399,1652]
+Warning: case and data files are inconsistent; zone 8, case [1800,1904], data [1653,1904]
+Warning: case and data files are inconsistent; zone 7, case [1399,1799], data [1399,1652]
+Warning: case and data files are inconsistent; zone 8, case [1800,1904], data [1653,1904]
+Warning: case and data files are inconsistent; zone 7, case [1399,1799], data [1399,1652]
+Warning: case and data files are inconsistent; zone 8, case [1800,1904], data [1653,1904]
+Warning: case and data files are inconsistent; zone 7, case [1399,1799], data [1399,1652]
+Warning: case and data files are inconsistent; zone 8, case [1800,1904], data [1653,1904]
+Warning: case and data files are inconsistent; zone 7, case [1399,1799], data [1399,1652]
+Warning: case and data files are inconsistent; zone 8, case [1800,1904], data [1653,1904]
+Warning: case and data files are inconsistent; zone 7, case [1399,1799], data [1399,1652]
+Warning: case and data files are inconsistent; zone 8, case [1800,1904], data [1653,1904]
+Warning: case and data files are inconsistent; zone 7, case [1399,1799], data [1399,1652]
+Warning: case and data files are inconsistent; zone 8, case [1800,1904], data [1653,1904]
+Warning: case and data files are inconsistent; zone 7, case [1399,1799], data [1399,1652]
+Warning: case and data files are inconsistent; zone 8, case [1800,1904], data [1653,1904]
+Warning: case and data files are inconsistent; zone 7, case [1399,1799], data [1399,1652]
+Warning: case and data files are inconsistent; zone 8, case [1800,1904], data [1653,1904]
+Warning: case and data files are inconsistent; zone 7, case [1399,1799], data [1399,1652]
+Warning: case and data files are inconsistent; zone 8, case [1800,1904], data [1653,1904]
+Parallel variables...
+Done.
+
+> ;/solve/initialize/initialize-flow
+;/solve/initialize/compute-defaults/pressure-inlet inlet
+;/solve/initialize/initialize-flow yes
+;/solve/initialize/hyb-initialization
+/solve/iterate 2000
+
+  iter  continuity  x-velocity  y-velocity      energy           k       omega     time/iter
+  2419  9.9521e-04  3.5719e-04  6.8654e-05  9.7828e-04  1.7105e-04  4.2984e-05  0:00:00 2000
+
+Internal error at line 1878 in file 'dbns\\src\\rp_mstage.c' on Node 28.
+Divergence detected in AMG solver
+Internal error at line 1878 in file 'dbns\\src\\rp_mstage.c' on Node 29.
+Divergence detected in AMG solver
+Internal error at line 1878 in file 'dbns\\src\\rp_mstage.c' on Node 30.
+Divergence detected in AMG solver
+Internal error at line 1878 in file 'dbns\\src\\rp_mstage.c' on Node 31.
+Divergence detected in AMG solver
+Internal error at line 1878 in file 'dbns\\src\\rp_mstage.c' on Node 20.
+Divergence detected in AMG solver
+Internal error at line 1878 in file 'dbns\\src\\rp_mstage.c' on Node 8.
+Divergence detected in AMG solver
+Internal error at line 1878 in file 'dbns\\src\\rp_mstage.c' on Node 4.
+Divergence detected in AMG solver
+Internal error at line 1878 in file 'dbns\\src\\rp_mstage.c' on Node 27.
+Divergence detected in AMG solver
+Internal error at line 1878 in file 'dbns\\src\\rp_mstage.c' on Node 6.
+Divergence detected in AMG solver
+Internal error at line 1878 in file 'dbns\\src\\rp_mstage.c' on Node 21.
+Divergence detected in AMG solver
+Internal error at line 1878 in file 'dbns\\src\\rp_mstage.c' on Node 0.
+Divergence detected in AMG solver
+Internal error at line 1878 in file 'dbns\\src\\rp_mstage.c' on Node 25.
+Divergence detected in AMG solver
+Internal error at line 1878 in file 'dbns\\src\\rp_mstage.c' on Node 15.
+Divergence detected in AMG solver
+Internal error at line 1878 in file 'dbns\\src\\rp_mstage.c' on Node 9.
+Divergence detected in AMG solver
+Internal error at line 1878 in file 'dbns\\src\\rp_mstage.c' on Node 5.
+Divergence detected in AMG solver
+Internal error at line 1878 in file 'dbns\\src\\rp_mstage.c' on Node 2.
+Divergence detected in AMG solver
+Internal error at line 1878 in file 'dbns\\src\\rp_mstage.c' on Node 19.
+Divergence detected in AMG solver
+Internal error at line 1878 in file 'dbns\\src\\rp_mstage.c' on Node 18.
+Divergence detected in AMG solver
+Internal error at line 1878 in file 'dbns\\src\\rp_mstage.c' on Node 26.
+Divergence detected in AMG solver
+Internal error at line 1878 in file 'dbns\\src\\rp_mstage.c' on Node 22.
+Divergence detected in AMG solver
+Internal error at line 1878 in file 'dbns\\src\\rp_mstage.c' on Node 23.
+Divergence detected in AMG solver
+Internal error at line 1878 in file 'dbns\\src\\rp_mstage.c' on Node 13.
+Divergence detected in AMG solver
+Internal error at line 1878 in file 'dbns\\src\\rp_mstage.c' on Node 12.
+Divergence detected in AMG solver
+Internal error at line 1878 in file 'dbns\\src\\rp_mstage.c' on Node 3.
+Divergence detected in AMG solver
+Internal error at line 1878 in file 'dbns\\src\\rp_mstage.c' on Node 1.
+Divergence detected in AMG solver
+Internal error at line 1878 in file 'dbns\\src\\rp_mstage.c' on Node 14.
+Divergence detected in AMG solver
+Internal error at line 1878 in file 'dbns\\src\\rp_mstage.c' on Node 11.
+Divergence detected in AMG solver
+Internal error at line 1878 in file 'dbns\\src\\rp_mstage.c' on Node 10.
+Divergence detected in AMG solver
+Internal error at line 1878 in file 'dbns\\src\\rp_mstage.c' on Node 16.
+Divergence detected in AMG solver
+Internal error at line 1878 in file 'dbns\\src\\rp_mstage.c' on Node 17.
+Divergence detected in AMG solver
+Internal error at line 1878 in file 'dbns\\src\\rp_mstage.c' on Node 24.
+Divergence detected in AMG solver
+Internal error at line 1878 in file 'dbns\\src\\rp_mstage.c' on Node 7.
+Divergence detected in AMG solver
+ Reversed flow on 2 faces (1.0% area) of pressure-outlet 4.
+
+ Reversed flow on 2 faces (1.0% area) of pressure-outlet 5.
+
+Divergence detected - temporarily reducing Courant number to 0.5
+ and trying again...
+
+Divergence detected - temporarily reducing Courant number to 0.05
+ and trying again...
+
+Divergence detected - temporarily reducing Courant number to 0.005
+ and trying again...
+
+Divergence detected - temporarily reducing Courant number to 0.0005
+ and trying again...
+        Stabilizing Coupled to enhance linear solver robustness.
+        Stabilizing Coupled using GMRES to enhance linear solver robustness.
+
+Divergence detected - temporarily reducing Courant number to 5e-05
+ and trying again...
+        Stabilizing Coupled to enhance linear solver robustness.
+        Stabilizing Coupled using GMRES to enhance linear solver robustness.
+        Stabilizing k to enhance linear solver robustness.
+        Stabilizing k using GMRES to enhance linear solver robustness.
+
+Divergence detected in AMG solver: k        Stabilizing omega to enhance linear solver robustness.
+        Stabilizing omega using GMRES to enhance linear solver robustness.
+
+Divergence detected in AMG solver: omega
+Divergence detected in AMG solver: k
+Divergence detected in AMG solver: omega
+Divergence detected in AMG solver: k
+Divergence detected in AMG solver: omega
+Divergence detected in AMG solver: k
+Divergence detected in AMG solver: omega
+Divergence detected in AMG solver: k
+Divergence detected in AMG solver: omega
+Divergence detected in AMG solver: k
+Divergence detected in AMG solver: omega
+Divergence detected in AMG solver: k
+Divergence detected in AMG solver: omega
+Divergence detected in AMG solver: k
+Divergence detected in AMG solver: omega
+Divergence detected in AMG solver: k
+Divergence detected in AMG solver: omega
+Divergence detected in AMG solver: k
+Divergence detected in AMG solver: omega
+Divergence detected in AMG solver: k
+Divergence detected in AMG solver: omega
+Divergence detected in AMG solver: k
+Divergence detected in AMG solver: omega
+Divergence detected in AMG solver: k
+Divergence detected in AMG solver: omega
+Divergence detected in AMG solver: k
+Divergence detected in AMG solver: omega
+Divergence detected in AMG solver: k
+Divergence detected in AMG solver: omega
+Divergence detected in AMG solver: k
+Divergence detected in AMG solver: omega
+Divergence detected in AMG solver: k
+Divergence detected in AMG solver: omega
+Divergence detected in AMG solver: k
+Divergence detected in AMG solver: omega
+Divergence detected in AMG solver: k
+Divergence detected in AMG solver: omega
+Divergence detected in AMG solver: k
+Divergence detected in AMG solver: omega
+Divergence detected in AMG solver: k
+Divergence detected in AMG solver: omega
+Divergence detected in AMG solver: k
+Divergence detected in AMG solver: omega
+Divergence detected in AMG solver: k
+Divergence detected in AMG solver: omega
+Divergence detected in AMG solver: k
+Divergence detected in AMG solver: omega
+Divergence detected in AMG solver: k
+Divergence detected in AMG solver: omega
+Divergence detected in AMG solver: k
+Divergence detected in AMG solver: omega
+Divergence detected in AMG solver: k
+Divergence detected in AMG solver: omega
+Divergence detected in AMG solver: k
+Divergence detected in AMG solver: omega
+Divergence detected in AMG solver: k
+Divergence detected in AMG solver: omega
+Divergence detected in AMG solver: k
+Divergence detected in AMG solver: omega
+Divergence detected in AMG solver: k
+Divergence detected in AMG solver: omega
+Divergence detected in AMG solver: k
+Divergence detected in AMG solver: omega
+Error at host: floating point exception
+
+Error: floating point exception
+Error Object: #f
+
+Warning: An error or interrupt occurred while reading the journal file.
+Some commands may not have been completed.
+
+
+> (cx-gui-do cx-activate-item "Information*OK")
+/exit y
+
+Posting ANSYS Product Improvement Program performance data 
+Done.
+(cx-gui-do cx-activate-item "Question*OK")
+
+Error at Node 28: floating point exception
+
+Error at Node 24: floating point exception
+
+Error at Node 2: floating point exception
+
+Error at Node 16: floating point exception
+
+Error at Node 0: floating point exception
+
+Error at Node 20: floating point exception
+
+Error at Node 21: floating point exception
+
+Error at Node 17: floating point exception
+
+Error at Node 8: floating point exception
+
+Error at Node 10: floating point exception
+
+Error at Node 11: floating point exception
+
+Error at Node 29: floating point exception
+
+Error at Node 27: floating point exception
+
+Error at Node 26: floating point exception
+
+Error at Node 9: floating point exception
+
+Error at Node 22: floating point exception
+
+Error at Node 30: floating point exception
+
+Error at Node 31: floating point exception
+
+Error at Node 23: floating point exception
+
+Error at Node 1: floating point exception
+
+Error at Node 3: floating point exception
+
+Error at Node 18: floating point exception
+
+Error at Node 19: floating point exception
+
+Error at Node 25: floating point exception
+
+Error at Node 6: floating point exception
+
+Error at Node 12: floating point exception
+
+Error at Node 5: floating point exception
+
+Error at Node 7: floating point exception
+
+Error at Node 4: floating point exception
+
+Error at Node 14: floating point exception
+
+Error at Node 15: floating point exception
+
+Error at Node 13: floating point exception

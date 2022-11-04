@@ -1,0 +1,28 @@
+/sync-chdir E:\MATLAB\RANS_optimisation\run13
+/file/read-case "grid.msh" 
+/define/boundary-conditions/modify-zones/zone-name 3 inlet 
+/define/boundary-conditions/modify-zones/zone-name 4 upper 
+/define/boundary-conditions/modify-zones/zone-name 5 lower 
+/define/boundary-conditions/modify-zones/zone-name 6 outlet
+/define/boundary-conditions/modify-zones/zone-name 7 upper-blade
+/define/boundary-conditions/modify-zones/zone-name 8 lower-blade
+/define/materials/change-create air air yes ideal-gas yes constant 1005 yes expression "DynamicViscosity*1005 [J/(kg K)]/0.72" yes sutherland three-coefficient-method 5.83247e-04 273 110.4 no no no
+/define/operating-conditions/operating-pressure 0
+/define/models/viscous/kw-sst? yes
+/define/boundary-conditions/zone-type inlet pressure-inlet 
+/define/boundary-conditions/pressure-inlet inlet yes no 74575.2 no 46984 no 300 no yes no no yes 0.5 1
+/define/boundary-conditions/zone-type outlet pressure-outlet 
+/define/boundary-conditions/bc-settings/pressure-outlet 0. 65 
+/define/boundary-conditions/pressure-outlet outlet yes no 46984 no 300 no yes no no yes 0.5 1 yes no no
+/define/boundary-conditions/copy-bc outlet (upper lower)
+/define/boundary-conditions/wall upper-blade 0 no 0 no no no 0 no no no no 0 no 0.5 no 1
+/define/boundary-conditions/copy-bc upper-blade (lower-blade)
+/define/models/solver/densit-based-implicit yes
+/file/read-data E:\MATLAB\RANS_optimisation\clean.dat
+;/solve/initialize/initialize-flow
+;/solve/initialize/compute-defaults/pressure-inlet inlet
+;/solve/initialize/initialize-flow yes
+;/solve/initialize/hyb-initialization
+/solve/iterate 2000
+/plot/plot yes loading.txt yes no no absolute-pressure yes 1 0 upper-blade ()
+;exit yes

@@ -12,14 +12,17 @@ classdef volTurbulence < handle
         w;
         x;
         y;
+        casepath;
     end
 
     properties (Dependent = true)
         Q;
+        k;
+        lturb;
     end
 
     methods
-        function obj = volTurbulence(path, ilength, nk, lturb, y, span)
+        function obj = volTurbulence(path, y, ilength, nk, lturb, span)
 
             if nargin == 6
                 
@@ -45,8 +48,8 @@ classdef volTurbulence < handle
                 obj.u = zeros(obj.ni,obj.nj,nk);
                 obj.v = zeros(obj.ni,obj.nj,nk);
                 obj.w = zeros(obj.ni,obj.nj,nk);
-                obj.blk.x{1} = zeros(obj.ni,obj.nj);
-                obj.blk.y{1} = zeros(obj.ni,obj.nj);
+                obj.blk.x = zeros(obj.ni,obj.nj);
+                obj.blk.y = zeros(obj.ni,obj.nj);
                 obj.blk.z = linspace(0,span,nk);
                 n=1;
                 for i = 1:obj.ni
@@ -57,27 +60,174 @@ classdef volTurbulence < handle
                             obj.v(i,j,k) = q(2,n);
                             obj.w(i,j,k) = q(3,n);
                             n = n+1;
-                            obj.blk.x{1}(i,j) = x(i);
-                            obj.blk.y{1}(i,j) = y(j);
+                            obj.blk.x(i,j) = x(i);
+                            obj.blk.y(i,j) = y(j);
                         end
                     end
                 end
-            else
+            elseif nargin == 1
+                if exist(fullfile(path, 'inflow_turb.dat'),'file')
+                    turbfile = fopen(fullfile(path, 'inflow_turb.dat'),'r');
+                elseif exist(fullfile(path,'turbid_files','inflow_turb.dat'),'file')
+                    obj.casepath = path;
+                    turbfile = fopen(fullfile(path,'turbid_files','inflow_turb.dat'),'r');
+                else
+                    fprintf('inflow_turb.dat not found\n');
+                    return
+                end
+
+                if exist(fullfile(path, 'turbid.txt'),'file')
+                    inputfile = fopen(fullfile(path, 'turbid.txt'),'r');
+                elseif exist(fullfile(path,'turbid_files','turbid.txt'),'file')
+                    inputfile = fopen(fullfile(path,'turbid_files','turbid.txt'),'r');
+                else
+                    fprintf('turbid.txt not found\n');
+                    return
+                end
+
+                temp = str2num(char(split(fgetl(inputfile))));
+                nx = temp(1); ny = temp(2); nz = temp(3);
+                temp = str2num(char(split(fgetl(inputfile))));
+                lsx = temp(1); lsy = temp(2); lsx = temp(3);
+                temp = str2num(char(split(fgetl(inputfile))));
+                nfx = temp(1); nfy = temp(2); nfx = temp(3);
+                fclose(inputfile);
 
                 
+
+                obj.ni = nx; obj.nj = ny; obj.nk = nz;
+                obj.inlet_width = 1;
+                obj.blk.y = repmat(linspace(-0.5, 0.5, ny), [nx 1]);
+                obj.blk.x = repmat(linspace(0, (nx-1)/(ny-1), nx)', [1 ny]);
+                obj.blk.z = linspace(0, (nz-1)/(ny-1), nz);
+                obj.blk.blockdims = [nx ny nz];
+
+                A = fread(turbfile,inf,'float64');
+                A = reshape(A,3,ny,nz,nx);
+                u = squeeze(A(1,:,:,:));
+                v = squeeze(A(2,:,:,:));
+                w = squeeze(A(3,:,:,:));
+                obj.u = permute(u,[3,1,2]);
+                obj.v = permute(v,[3,1,2]);
+                obj.w = permute(w,[3,1,2]);
+
+                fclose(turbfile);
+
+%                 obj.u = zeros(nx,ny,nz);
+%                 obj.v = zeros(nx,ny,nz);
+%                 obj.w = zeros(nx,ny,nz);
+% 
+%                 q = fread(turbfile,inf,'float64');
+%                 q = reshape(q,3,length(q)/3);
+% 
+%                 
+%                 n = 1;
+% 
+%                 for i = 1:obj.ni
+%                     if mod(i, 20) == 0
+%                         fprintf('i=%d/%d\n',i,obj.ni)
+%                     end
+%                     for j = 1:obj.nj
+%                         for k = 1:obj.nk
+%                             obj.u(i,j,k) = q(1,n);
+%                             obj.v(i,j,k) = q(2,n);
+%                             obj.w(i,j,k) = q(3,n);
+%                             n = n+1;
+%                         end
+%                     end
+%                 end
+                
+            elseif nargin == 3 && ischar(y)
+                ni = ilength(1); nj = ilength(2); nk = ilength(3);
+                obj.ni = ni; obj.nj = nj; obj.nk = nk;
+                gridName = y;
+
+%                 fid_g = fopen(gridName,'r'); %
+%                 G = fread(fid_g,inf,'float64');       
+%             
+%                 G = reshape(G,3,length(G)/3);  
+%                 xb = reshape(G(1,:),[ni,nj,nk]);
+%                 yb = reshape(G(2,:),[ni,nj,nk]);
+%                 zb = reshape(G(3,:),[ni,nj,nk]);
+%                 fclose(fid_g); 
+%                 obj.blk.x = xb(:,:,1);
+%                 obj.blk.y = yb(:,:,1);
+%                 obj.blk.z = zb(1,1,:);
+%                 obj.blk.blockdims = [ni nj nk];
+% 
+%                 obj.u = zeros(ni,nj,nk);
+%                 obj.v = zeros(ni,nj,nk);
+%                 obj.w = zeros(ni,nj,nk);
+% 
+%                 turbfile = fopen(path,'r');
+% 
+%                 q = fread(turbfile,inf,'float64');
+%                 q = reshape(q,3,length(q)/3);
+%                 fclose(turbfile);
+% 
+%                 
+%                 n = 1;
+% 
+%                 for i = 1:obj.ni
+%                     if mod(i, 20) == 0
+%                         fprintf('i=%d/%d\n',i,obj.ni)
+%                     end
+%                     for j = 1:obj.nj
+%                         for k = 1:obj.nk
+%                             obj.u(i,j,k) = q(1,n);
+%                             obj.v(i,j,k) = q(2,n);
+%                             obj.w(i,j,k) = q(3,n);
+%                             n = n+1;
+%                         end
+%                     end
+%                 end
+                fid_f = fopen(path,'r'); %
+                A = fread(fid_f,inf,'float64');
+                A = reshape(A,3,nj,nk,ni);
+                
+                
+                
+                u = squeeze(A(1,:,:,:));
+                v = squeeze(A(2,:,:,:));
+                w = squeeze(A(3,:,:,:));
+                obj.u = permute(u,[3,1,2]);
+                obj.v = permute(v,[3,1,2]);
+                obj.w = permute(w,[3,1,2]);
+                
+                
+                fid_g = fopen(gridName,'r'); %
+                G = fread(fid_g,inf,'float64');       
+                
+                
+                
+                G = reshape(G,3,length(G)/3);  
+                xb = reshape(G(1,:),[ni,nj,nk]);
+                yb = reshape(G(2,:),[ni,nj,nk]);
+                zb = reshape(G(3,:),[ni,nj,nk]);
+                fclose(fid_g);
+                obj.blk.x = squeeze(xb(:,:,1));
+                obj.blk.y = squeeze(yb(:,:,1));
+                obj.blk.z = squeeze(zb(1,1,:));
+                obj.blk.blockdims = [ni nj nk];
+
+
 
             end
         end
 
-        function value = slice(obj,k)
-            if nargin == 1
+        function value = slice(obj,k, gas)
+            if nargin == 1 || isempty(k)
                 k = floor(obj.nk/2);
             end
 
-            value = flowSlice(obj.blk, obj.gas);
-            value.u{1} = obj.u{nb}(:,:,k);
-            value.v{1} = obj.v{nb}(:,:,k);
-            value.w{1} = obj.w{nb}(:,:,k);
+            value = flowSlice(obj.blk, gas);
+            value.u{1} = obj.u(:,:,k);
+            value.v{1} = obj.v(:,:,k);
+            value.w{1} = obj.w(:,:,k);
+            value.blk.x = {};
+            value.blk.y = {};
+            value.blk.x{1} = obj.blk.x;
+            value.blk.y{1} = obj.blk.y;
         end
 
         function apply_window(obj, vector)
@@ -119,15 +269,23 @@ classdef volTurbulence < handle
         end
 
         function value = get.Q(obj)
-            value = Q_criterion(obj.blk.x{1},obj.blk.y{1},obj.blk.z,obj.u,obj.v,obj.w);
+            value = Q_criterion(obj.blk.x,obj.blk.y,obj.blk.z,obj.u,obj.v,obj.w);
+        end
+
+        function value = get.k(obj)
+            value = 0.5*(obj.u.^2 + obj.v.^2 + obj.w.^2);
+        end
+
+        function value = Tu(obj, vref)
+            value = sqrt(2*mean(obj.k,'all')/3)/vref;
         end
 
         function plot_Q_criterion(obj, thresh)
-%             X = repmat(obj.blk.x{1},[1 1 obj.nk]);
-%             Y = repmat(obj.blk.y{1},[1 1 obj.nk]);
-%             Z = repmat(obj.blk.z,[size(obj.blk.x{1}) 1]);
-            X = obj.blk.x{1}(:,1)';
-            Y = obj.blk.y{1}(1,:);
+%             X = repmat(obj.blk.x,[1 1 obj.nk]);
+%             Y = repmat(obj.blk.y,[1 1 obj.nk]);
+%             Z = repmat(obj.blk.z,[size(obj.blk.x) 1]);
+            X = obj.blk.x(:,1)';
+            Y = obj.blk.y(1,:);
             Z = obj.blk.z;
             [X, Y, Z] = meshgrid(X,Y,Z);
             Q = permute(obj.Q,[2 1 3]);
@@ -147,13 +305,14 @@ classdef volTurbulence < handle
             fkc = linspace(0,1,obj.nk);
 
             lturb_new = new_case.inlet_width/(new_case.nj_inlet-1);
-            ilength_new = floor(obj.blk.x{1}(end,1)/(lturb_new))+1;
+            ilength_new = floor(obj.blk.x(end,1)/(lturb_new))+1;
 
             y_new = new_case.y_inlet;
             fi = linspace(0,1,ilength_new);
             fj = (y_new - y_new(1))/(y_new(end)-y_new(1));
             fk = linspace(0,1,new_case.blk.nk{1});
             
+                
             %[Jc,Ic,Kc] = meshgrid(fjc,fic,fkc);
             [J,I,K] = meshgrid(fj,fi,fk);
             fprintf('Interpolating u\n')
@@ -192,6 +351,44 @@ classdef volTurbulence < handle
                 fwrite(turbfile,buf,'float64');
                 fclose(turbfile);
             end
+        end
+
+        function plot_mesh(obj, skip, ax)
+            if nargin<2 || isempty(skip)
+                skip=8;
+            end
+
+            if nargin<3 || isempty(ax)
+                ax = gca;
+            end
+            
+            hold on
+            [ni, nj] = size(obj.blk.x);
+            for j=[1:skip:ni ni]
+                if (j==1) || (j==ni)
+                    plot(ax, obj.blk.x(j,:),obj.blk.y(j,:),'r','LineWidth',1)
+                else
+                    plot(ax, obj.blk.x(j,:),obj.blk.y(j,:),'k')
+                end
+            end
+            for j=[1:skip:nj nj]
+                if (j==1) || (j==nj)
+                    plot(ax, obj.blk.x(:,j),obj.blk.y(:,j),'r','LineWidth',1)
+                else
+                    plot(ax, obj.blk.x(:,j),obj.blk.y(:,j),'k')
+                end
+            end
+        
+            
+            axis equal
+        end
+
+        function value = get.lturb(obj)
+            value = (obj.blk.x(end,1) - obj.blk.x(1,1))/(size(obj.blk.x,1)-1);
+        end
+
+        function value = get_aturb(obj,Tu,vref)
+            value = Tu/obj.Tu(vref);
         end
     end
 end

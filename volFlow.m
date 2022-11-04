@@ -243,7 +243,13 @@ classdef volFlow
                 k = floor(obj.nk/2);
             end
 
-            value = kSlice(obj.blk.blockdims, obj.gas);
+            value = kSlice(); %(obj.blk.blockdims, obj.gas);
+            value.gam = obj.gam;
+            value.cp = obj.gas.cp;
+            value.rgas = obj.cp*(1-1/obj.gam);
+            value.NB = size(obj.blk.blockdims,1);
+            value.blk = obj.blk;
+
             for nb=1:obj.NB
                 nb;
                 value.ro{nb} = obj.ro{nb}(:,:,k);

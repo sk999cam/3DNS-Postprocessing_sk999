@@ -30,51 +30,53 @@ classdef kSlice
     methods
         function obj = kSlice(casedir, nSlice, blk, gas)
         
-            obj.gam = gas.gam;
-            obj.cp = gas.cp;
-            obj.rgas = obj.cp*(1-1/obj.gam);
-            blockdims = blk.blockdims;
-            obj.NB = size(blockdims,1);
-            obj.blk = blk;
-
-            if nargin > 2
-                obj.nSlice = nSlice;
+            if nargin > 0
+                obj.gam = gas.gam;
+                obj.cp = gas.cp;
+                obj.rgas = obj.cp*(1-1/obj.gam);
+                blockdims = blk.blockdims;
+                obj.NB = size(blockdims,1);
+                obj.blk = blk;
     
-                for nb = 1:obj.NB
-                    flopath = fullfile(casedir, 'k_cuts',  ['kcu2_' num2str(nb) '_' num2str(nSlice)]);
-                    flofile = fopen(flopath,'r');
-                    nodfile = fopen(fullfile(casedir, 'k_cuts', ['knd2_' num2str(nb) '_' num2str(nSlice)]),'r');
-                    A = fread(flofile,inf,'float64');
-                    A = reshape(A,5,length(A)/5);
-                    
-                    B = fread(nodfile,inf,'uint32');
-                    B = reshape(B,3,length(B)/3);
-            
-                    fclose(flofile);
-                    fclose(nodfile);
-    
-                    ro = zeros(blockdims(nb,1),blockdims(nb,2));
-                    ru = zeros(blockdims(nb,1),blockdims(nb,2));
-                    rv = zeros(blockdims(nb,1),blockdims(nb,2));
-                    rw = zeros(blockdims(nb,1),blockdims(nb,2));
-                    Et = zeros(blockdims(nb,1),blockdims(nb,2));
-    
-                    for n=1:size(A,2)
-                        i = B(1,n);
-                        j = B(2,n);
-                        k = B(3,n);
-                        ro(i,j) = A(1,n);
-                        ru(i,j) = A(2,n);
-                        rv(i,j) = A(3,n);
-                        rw(i,j) = A(4,n);
-                        Et(i,j) = A(5,n);
+                if nargin > 2
+                    obj.nSlice = nSlice;
+        
+                    for nb = 1:obj.NB
+                        flopath = fullfile(casedir, 'k_cuts',  ['kcu2_' num2str(nb) '_' num2str(nSlice)]);
+                        flofile = fopen(flopath,'r');
+                        nodfile = fopen(fullfile(casedir, 'k_cuts', ['knd2_' num2str(nb) '_' num2str(nSlice)]),'r');
+                        A = fread(flofile,inf,'float64');
+                        A = reshape(A,5,length(A)/5);
+                        
+                        B = fread(nodfile,inf,'uint32');
+                        B = reshape(B,3,length(B)/3);
+                
+                        fclose(flofile);
+                        fclose(nodfile);
+        
+                        ro = zeros(blockdims(nb,1),blockdims(nb,2));
+                        ru = zeros(blockdims(nb,1),blockdims(nb,2));
+                        rv = zeros(blockdims(nb,1),blockdims(nb,2));
+                        rw = zeros(blockdims(nb,1),blockdims(nb,2));
+                        Et = zeros(blockdims(nb,1),blockdims(nb,2));
+        
+                        for n=1:size(A,2)
+                            i = B(1,n);
+                            j = B(2,n);
+                            k = B(3,n);
+                            ro(i,j) = A(1,n);
+                            ru(i,j) = A(2,n);
+                            rv(i,j) = A(3,n);
+                            rw(i,j) = A(4,n);
+                            Et(i,j) = A(5,n);
+                        end
+        
+                        obj.ro{nb} = ro;
+                        obj.u{nb} = ru./ro;
+                        obj.v{nb} = rv./ro;
+                        obj.w{nb} = rw./ro;
+                        obj.Et{nb} = Et;
                     end
-    
-                    obj.ro{nb} = ro;
-                    obj.u{nb} = ru./ro;
-                    obj.v{nb} = rv./ro;
-                    obj.w{nb} = rw./ro;
-                    obj.Et{nb} = Et;
                 end
             end
         end

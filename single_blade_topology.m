@@ -1,9 +1,13 @@
-function [blk,next_block,next_patch,corner] = single_blade_topology(xprof,yprof,pitch,bound_angle,Lup,Ldn,Lo,stag,npp,ywall,msmooths,block_ratio)
+function [blk,next_block,next_patch,corner] = single_blade_topology(xprof,yprof,pitch,bound_angle,Lup,Ldn,Lo,stag,npp,ywall,msmooths,block_ratio, No)
 
 % create 12-block topology with o-grid
 % returns a coarse mesh defining an initial topology
 
-sle_factor = 3.8;
+if nargin < 13
+    No = 1;
+end
+
+sle_factor = 3.8/No;
 bound_angle = bound_angle*pi/180;
 % get LE and TE points
 

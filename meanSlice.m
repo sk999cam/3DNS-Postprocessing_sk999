@@ -1,7 +1,7 @@
 classdef meanSlice < aveSlice
     % MEANSLICE Contains the 2D (spanwise averaged) mean flow
 
-        
+
     properties
         time;
         nMean;
@@ -18,6 +18,7 @@ classdef meanSlice < aveSlice
         nk;
         rous;
         rovs;
+        rows;
         k;
         advK;
         e_s = [];
@@ -47,6 +48,10 @@ classdef meanSlice < aveSlice
                 statstype = 1;
             end
             nstats;
+            if isnan(statstype)
+                statstype = 2;
+            end
+
 
             if nargin > 0
 
@@ -147,7 +152,7 @@ classdef meanSlice < aveSlice
                                 qx_T(i,j) = A(18,n)/obj.meanTime;
                                 qy_T(i,j) = A(19,n)/obj.meanTime;
                                 qz_T(i,j) = A(20,n)/obj.meanTime;
-                                irrev_gen(i,j) = A(21,n)/obj.meanTime;
+                                irrev_gen(i,j) = A(21,n)/obj.meanTime; % Pr/(T^2*mu*cp) * Σqi*qi
                             end
 
                             if nstats > 21
@@ -166,6 +171,7 @@ classdef meanSlice < aveSlice
                     obj.diss{nb} = diss;
                     obj.rous{nb} = rous;
                     obj.rovs{nb} = rovs;
+                    obj.rows{nb} = rows;
 
                     [DUDX,DUDY] = gradHO(blk.x{nb},blk.y{nb},obj.u{nb});
                     [DVDX,DVDY] = gradHO(blk.x{nb},blk.y{nb},obj.v{nb});

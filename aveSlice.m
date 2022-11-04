@@ -16,19 +16,26 @@ classdef aveSlice < flowSlice
         Msurf;          % Surface Mach No
         Psurf;
         theta;          % Momentum thickness
-        theta_incomp;
+        theta_k;
+        thetaStar;      % K.E. Thickness
         H;              % Shape factor
-        H_incomp;       % Incompresisble shape factor
+        H_k;            % Kinematic shape factor
+        H_ke;           % K.E. shape factor = thetaStar/theta
+        H_rho;           % Density shape factor H** = delta**/theta
+        H1;             
         %delta99;        % BL thickness
         %delta99_unsflo;
+        delta;          % Approx BL thickness
         delStar;        % Displacemnt thickness
-        delta99_incomp; % BL thickness, incompressible definition
-        delStar_incomp; % Displacemnt thickness, incompressible definition
+        delta99_k;      % BL thickness, incompressible definition
+        delStar_k;      % Displacemnt thickness, incompressible definition
+        delRho;         % Density thickness, delta**
         dsdy;           % Wall normal entropy gradient
         %BLedgeInd;      % j index of detected BL edge
         U;              % Wall-parallel velocity
         Res;            % Surface distance Reynolds No
         blPr;           % Componant of cd due to production of tke
+        blPr_eq;        % Coles' equilibrium prodution
         tau_w;
         dUdy;
         dTdy;
@@ -36,6 +43,7 @@ classdef aveSlice < flowSlice
         Re_theta;
         pdyn            % Dynamic pressure, 0.5*rho*V^2
         nu_e            % Boundary layer edge viscosity
+
         
     end
 
@@ -253,12 +261,27 @@ classdef aveSlice < flowSlice
             end
         end
 
-        function value = get.delStar_incomp(obj)
+        function value = get.delStar_k(obj)
             inds = obj.BLedgeInd;
             Unow = obj.U;
             value = zeros(1,length(inds));
             for i=1:size(obj.yBL,1)
                 integrand = 1 - Unow(i,1:inds(i))./Unow(i,inds(i));
+                ys = obj.yBL(i,1:inds(i));
+                value(i) = trapz(ys, integrand);
+            end
+        end
+
+        function value = get.delRho(obj)
+            inds = obj.BLedgeInd;
+            ronow = obj.oGridProp('ro');
+            Unow = obj.U;
+            for i=1:size(obj.yBL,1)
+                roprof = ronow(i,1:inds(i));
+                Uprof = Unow(i,1:inds(i));
+                ro0 = ronow(i,inds(i));
+                U0 = Unow(i,inds(i));
+                integrand = (1 - roprof/ro0).*Uprof/U0;
                 ys = obj.yBL(i,1:inds(i));
                 value(i) = trapz(ys, integrand);
             end
@@ -279,7 +302,7 @@ classdef aveSlice < flowSlice
             end
         end
 
-        function value = get.theta_incomp(obj)
+        function value = get.theta_k(obj)
             inds = obj.BLedgeInd;
             Unow = obj.U;
             for i=1:size(obj.yBL,1)
@@ -291,12 +314,55 @@ classdef aveSlice < flowSlice
             end
         end
 
+        function value = get.thetaStar(obj)
+            inds = obj.BLedgeInd;
+            ronow = obj.oGridProp('ro');
+            Unow = obj.U;
+            for i=1:size(obj.yBL,1)
+                roprof = ronow(i,1:inds(i));
+                Uprof = Unow(i,1:inds(i));
+                ro0 = ronow(i,inds(i));
+                U0 = Unow(i,inds(i));
+                integrand = (roprof.*Uprof/(ro0*U0)).*(1-Uprof.^2/U0^2);
+                ys = obj.yBL(i,1:inds(i));
+                value(i) = trapz(ys, integrand);
+            end
+        end
+
         function value = get.H(obj)
             value = obj.delStar./obj.theta;
         end
 
-        function value = get.H_incomp(obj)
-            value = obj.delStar_incomp./obj.theta_incomp;
+        function value = get.H_k(obj)
+            value = obj.delStar_k./obj.theta_k;
+        end
+
+        function value = get.H_ke(obj)
+            value = obj.thetaStar./obj.theta;
+        end
+
+        function value = get.H_rho(obj)
+           value = obj.delRho./obj.theta;
+        end
+
+        function value = get.H1(obj)
+            inds = obj.BLedgeInd;
+            ronow = obj.oGridProp('ro');
+            Unow = obj.U;
+            for i=1:size(obj.yBL,1)
+                roprof = ronow(i,1:inds(i));
+                Uprof = Unow(i,1:inds(i));
+                ro0 = ronow(i,inds(i));
+                U0 = Unow(i,inds(i));
+                integrand = (roprof.*Uprop)/(ro0*U0);
+                ys = obj.yBL(i,1:inds(i));
+                num(i) = trapz(ys, integrand);
+            end
+            value = num(i)./obj.theta;
+        end
+
+        function value = get.delta(obj)
+            value = (obj.H + obj.H1).*obj.theta;
         end
 
         function value = get.Res(obj)
@@ -311,6 +377,7 @@ classdef aveSlice < flowSlice
 
             [q, i] = BLprof(obj,x,prop);
             size(q);
+            q = q/max(q);
             BLinds = obj.BLedgeInd;
             if string(prop) == "dsdy"
                 plot(ax, q, obj.yBL(i,:))
@@ -347,7 +414,7 @@ classdef aveSlice < flowSlice
                 ax = gca;
             end
 
-            H = obj.H_incomp;
+            H = obj.H_k;
             pr = obj.blPr;
             if nargin>3 && ~isempty(xrange)
                 H = H(obj.xSurf>xrange(1)&obj.xSurf<xrange(2));
@@ -390,6 +457,11 @@ classdef aveSlice < flowSlice
                 ys = obj.yBL(i,1:inds(i));
                 value(i) = trapz(ys, Prprof)/Ue^3;
             end
+        end
+
+        function value = get.blPr_eq(obj)
+            Hk = obj.H_k;
+            value = 0.02456*((Hk-1)./Hk).^3;
         end
 
         function value = get.Re_theta(obj)

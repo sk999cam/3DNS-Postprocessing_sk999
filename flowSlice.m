@@ -13,6 +13,9 @@ classdef flowSlice < handle
         yBL;
         xO;
         yO;
+        iO;
+        jO;
+        blkO;
         oblocks;
         oblocks_flip;
         blk;
@@ -51,17 +54,32 @@ classdef flowSlice < handle
                     obj.NB = size(blk.blockdims,1);
                     xo = [];
                     yo = [];
+                    io = [];
+                    jo = [];
+                    blko = [];
                     for i=1:length(obj.oblocks)
+                        ni = size(blk.x{obj.oblocks(i)},1);
+                        nj = size(blk.x{obj.oblocks(i)},2);
                         xtmp = blk.x{obj.oblocks(i)}(:,:);
                         ytmp = blk.y{obj.oblocks(i)}(:,:);
+                        itmp = 1:ni;
+                        itmp = repmat(itmp',[1 nj]);
+                        jtmp = 1:nj;
+                        jtmp = repmat(flip(jtmp), [ni 1]);
+                        blktmp = obj.oblocks(i)*ones(ni,nj);
                         xtmp = flip(xtmp,2);
                         ytmp = flip(ytmp,2);
                         if obj.oblocks_flip(i) == 1
                             xtmp = flip(xtmp);
                             ytmp = flip(ytmp);
+                            itmp = flip(itmp);
                         end
                         xo = [xo; xtmp(1:end-1,:)];
                         yo = [yo; ytmp(1:end-1,:)];
+                        io = [io; itmp(1:end-1,:)];
+                        jo = [jo; jtmp(1:end-1,:)];
+                        blko = [blko; blktmp(1:end-1,:)];
+
                     end
                     xsurf = xo(:,1);
                     [~, obj.iLE] = min(xsurf);
@@ -69,7 +87,9 @@ classdef flowSlice < handle
                     obj.xSurf = xsurf(obj.iLE:obj.iTE);
                     obj.xO = xo(obj.iLE:obj.iTE,:);
                     obj.yO = yo(obj.iLE:obj.iTE,:);
-
+                    obj.iO = io(obj.iLE:obj.iTE,:);
+                    obj.jO = jo(obj.iLE:obj.iTE,:);
+                    obj.blkO = blko(obj.iLE:obj.iTE,:);
                     %obj.xSurf = xsurf([obj.iLE:-1:1 end:-1:obj.iTE]);
                     %size(obj.xSurf)
                     R = [0 -1; 1 0];
@@ -100,6 +120,7 @@ classdef flowSlice < handle
                     obj.gas = gas;
                     obj.gas.rgas = obj.gas.cp*(1-1/obj.gas.gam);
                     obj.NB = size(blk.blockdims,1);
+                    obj.blk = blk;
                 end
             end
         end         % End of constructor
@@ -166,7 +187,7 @@ classdef flowSlice < handle
         
 
         function value = get.cellSize(obj)
-            fprintf('Calculating Cell Sizes')
+            fprintf('Calculating Cell Sizes\n')
             dz = obj.blk.span/(obj.blk.nk{1}-1);
             
             value = {};
@@ -290,7 +311,15 @@ classdef flowSlice < handle
             end
         end
 
-        
+        function [i, j, blk] = grid_inds_at_BL_max(obj,prop,x)
+            io = obj.x2ind(x);
+            prop
+            prof = obj.BLprof(x, prop);
+            [~, jo] = max(prof);
+            i = obj.iO(io, jo);
+            j = obj.jO(io, jo);
+            blk = obj.blkO(io, jo);
+        end
 
         function ind = x2ind(obj,x)
             [~, ind] = min(abs(obj.xSurf-x));
@@ -314,12 +343,17 @@ classdef flowSlice < handle
                 ax = gca;
             end
             q = obj.(prop);
-            hold on
-            for i=1:obj.NB
-                pcolor(ax, obj.blk.x{i}, obj.blk.y{i}, q{i});
+            if obj.NB > 1
+                hold on
+                for i=1:obj.NB
+                    pcolor(ax, obj.blk.x{i}, obj.blk.y{i}, q{i});
+                end
+                shading('interp')
+                axis([-0.2 2 -0.5 0.5])
+            else
+                pcolor(ax, obj.blk.x{1}, obj.blk.y{1}, q{1});
+                shading interp
             end
-            shading('interp')
-            axis([-0.2 2 -0.5 0.5])
             axis equal
             axis off
             cb = colorbar('southoutside');

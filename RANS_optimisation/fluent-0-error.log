@@ -1,0 +1,183 @@
+Node 0 Fatal signal raised sig = Segmentation fault
+ 6ee080d0 CX_Primitive_Error
+ 60200cc0 seh_filter_exe
+ 6ee7cc40 logical_right_shift
+ 52c8ec30 _C_specific_handler
+ 626b1f80 _chkstk
+ 62661020 RtlRaiseException
+ 626b0ba0 KiUserExceptionDispatcher
+ 6dc9beb0 Fill_Cell_Faces
+ 6de26cf0 Reorder_F
+ 6d0b5ac0 Build_Grid
+ 6ce816b0 ResetMixedInteriorThreadType
+ 6ee680c0 eval
+ 6cf92d90 PRF_Command_Start
+ 6cf955b0 PRF_Node_repl
+ 6cf95e80 init_rsubrs
+ 6ee7cc40 logical_right_shift
+ 615d7020 BaseThreadInitThunk
+ 62662630 RtlUserThreadStart
+
+Error [node 0] [time 7/19/22 13:56:58] Abnormal Exit!
+Node 0 Fatal signal raised sig = Segmentation fault
+ 6ee080d0 CX_Primitive_Error
+ 60200cc0 seh_filter_exe
+ 6ee7cc40 logical_right_shift
+ 52c8ec30 _C_specific_handler
+ 626b1f80 _chkstk
+ 62661020 RtlRaiseException
+ 626b0ba0 KiUserExceptionDispatcher
+ 6dc9beb0 Fill_Cell_Faces
+ 6de26cf0 Reorder_F
+ 6d0b5ac0 Build_Grid
+ 6ce816b0 ResetMixedInteriorThreadType
+ 6ee680c0 eval
+ 6cf92d90 PRF_Command_Start
+ 6cf955b0 PRF_Node_repl
+ 6cf95e80 init_rsubrs
+ 6ee7cc40 logical_right_shift
+ 615d7020 BaseThreadInitThunk
+ 62662630 RtlUserThreadStart
+
+Error [node 0] [time 7/19/22 14:21:3] Abnormal Exit!
+Node 0 Fatal signal raised sig = Segmentation fault
+ 6ee080d0 CX_Primitive_Error
+ 60200cc0 seh_filter_exe
+ 6ee7cc40 logical_right_shift
+ 52c8ec30 _C_specific_handler
+ 626b1f80 _chkstk
+ 62661020 RtlRaiseException
+ 626b0ba0 KiUserExceptionDispatcher
+ 6dc9beb0 Fill_Cell_Faces
+ 6de26cf0 Reorder_F
+ 6d0b5ac0 Build_Grid
+ 6ce816b0 ResetMixedInteriorThreadType
+ 6ee680c0 eval
+ 6cf92d90 PRF_Command_Start
+ 6cf955b0 PRF_Node_repl
+ 6cf95e80 init_rsubrs
+ 6ee7cc40 logical_right_shift
+ 615d7020 BaseThreadInitThunk
+ 62662630 RtlUserThreadStart
+
+Error [node 0] [time 7/19/22 14:31:40] Abnormal Exit!
+Node 0 Fatal signal raised sig = Segmentation fault
+ 6ee080d0 CX_Primitive_Error
+ 60200cc0 seh_filter_exe
+ 6ee7cc40 logical_right_shift
+ 52c8ec30 _C_specific_handler
+ 626b1f80 _chkstk
+ 62661020 RtlRaiseException
+ 626b0ba0 KiUserExceptionDispatcher
+ 6d6e52e0 free_v
+ 6d0b5ac0 Build_Grid
+ 6ce816b0 ResetMixedInteriorThreadType
+ 6ee680c0 eval
+ 6cf92d90 PRF_Command_Start
+ 6cf955b0 PRF_Node_repl
+ 6cf95e80 init_rsubrs
+ 6ee7cc40 logical_right_shift
+ 615d7020 BaseThreadInitThunk
+ 62662630 RtlUserThreadStart
+
+Error [node 0] [time 7/19/22 14:48:56] Abnormal Exit!
+Node 0 Fatal signal raised sig = Segmentation fault
+ 6ee080d0 CX_Primitive_Error
+ 60200cc0 seh_filter_exe
+ 6ee7cc40 logical_right_shift
+ 52c8ec30 _C_specific_handler
+ 626b1f80 _chkstk
+ 62661020 RtlRaiseException
+ 626b0ba0 KiUserExceptionDispatcher
+ 6d6e52e0 free_v
+ 6d0b5ac0 Build_Grid
+ 6ce816b0 ResetMixedInteriorThreadType
+ 6ee680c0 eval
+ 6cf92d90 PRF_Command_Start
+ 6cf955b0 PRF_Node_repl
+ 6cf95e80 init_rsubrs
+ 6ee7cc40 logical_right_shift
+ 615d7020 BaseThreadInitThunk
+ 62662630 RtlUserThreadStart
+
+Error [node 0] [time 7/19/22 14:53:17] Abnormal Exit!
+Node 0 Fatal signal raised sig = Segmentation fault
+ 6ee080d0 CX_Primitive_Error
+ 60200cc0 seh_filter_exe
+ 6ee7cc40 logical_right_shift
+ 52c8ec30 _C_specific_handler
+ 626b1f80 _chkstk
+ 62661020 RtlRaiseException
+ 626b0ba0 KiUserExceptionDispatcher
+ 6d6e52e0 free_v
+ 6d0b5ac0 Build_Grid
+ 6ce816b0 ResetMixedInteriorThreadType
+ 6ee680c0 eval
+ 6cf92d90 PRF_Command_Start
+ 6cf955b0 PRF_Node_repl
+ 6cf95e80 init_rsubrs
+ 6ee7cc40 logical_right_shift
+ 615d7020 BaseThreadInitThunk
+ 62662630 RtlUserThreadStart
+
+Error [node 0] [time 7/19/22 14:57:59] Abnormal Exit!
+Node 0 Fatal signal raised sig = Segmentation fault
+ 6ee080d0 CX_Primitive_Error
+ 60200cc0 seh_filter_exe
+ 6ee7cc40 logical_right_shift
+ 52c8ec30 _C_specific_handler
+ 626b1f80 _chkstk
+ 62661020 RtlRaiseException
+ 626b0ba0 KiUserExceptionDispatcher
+ 6d6e52e0 free_v
+ 6d0b5ac0 Build_Grid
+ 6ce816b0 ResetMixedInteriorThreadType
+ 6ee680c0 eval
+ 6cf92d90 PRF_Command_Start
+ 6cf955b0 PRF_Node_repl
+ 6cf95e80 init_rsubrs
+ 6ee7cc40 logical_right_shift
+ 615d7020 BaseThreadInitThunk
+ 62662630 RtlUserThreadStart
+
+Error [node 0] [time 7/19/22 15:56:54] Abnormal Exit!
+Node 0 Fatal signal raised sig = Segmentation fault
+ 6ee080d0 CX_Primitive_Error
+ 60200cc0 seh_filter_exe
+ 6ee7cc40 logical_right_shift
+ 52c8ec30 _C_specific_handler
+ 626b1f80 _chkstk
+ 62661020 RtlRaiseException
+ 626b0ba0 KiUserExceptionDispatcher
+ 6d6e52e0 free_v
+ 6d0b5ac0 Build_Grid
+ 6ce816b0 ResetMixedInteriorThreadType
+ 6ee680c0 eval
+ 6cf92d90 PRF_Command_Start
+ 6cf955b0 PRF_Node_repl
+ 6cf95e80 init_rsubrs
+ 6ee7cc40 logical_right_shift
+ 615d7020 BaseThreadInitThunk
+ 62662630 RtlUserThreadStart
+
+Error [node 0] [time 7/19/22 16:6:13] Abnormal Exit!
+Node 0 Fatal signal raised sig = Segmentation fault
+ 6ee080d0 CX_Primitive_Error
+ 60200cc0 seh_filter_exe
+ 6ee7cc40 logical_right_shift
+ 52c8ec30 _C_specific_handler
+ 626b1f80 _chkstk
+ 62661020 RtlRaiseException
+ 626b0ba0 KiUserExceptionDispatcher
+ 6d6e52e0 free_v
+ 6d0b5ac0 Build_Grid
+ 6ce816b0 ResetMixedInteriorThreadType
+ 6ee680c0 eval
+ 6cf92d90 PRF_Command_Start
+ 6cf955b0 PRF_Node_repl
+ 6cf95e80 init_rsubrs
+ 6ee7cc40 logical_right_shift
+ 615d7020 BaseThreadInitThunk
+ 62662630 RtlUserThreadStart
+
+Error [node 0] [time 7/19/22 16:9:54] Abnormal Exit!

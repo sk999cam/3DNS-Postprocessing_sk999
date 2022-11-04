@@ -1,4 +1,3 @@
-
 classdef DNS_case < handle
     %  DNS_CASE Class containing 3DNS case information and methods to read
     %  and postprocess results
@@ -37,6 +36,7 @@ classdef DNS_case < handle
         trip;
         iTrip = false;
         e_unst = [];
+        cell_area = [];
     end
 
     properties (Dependent = true)
@@ -56,6 +56,7 @@ classdef DNS_case < handle
             elseif length(run) == 1
                 obj.run = run;
                 obj.runpath = fullfile(obj.casepath,['run' num2str(obj.run)]);
+                obj.runpaths = obj.runpath;
             else
                 obj.run = run;
                 obj.runpaths = {};
@@ -216,6 +217,16 @@ classdef DNS_case < handle
 
         end
 
+        function writeInputFiles(obj, nkproc)
+            if obj.NB == 12
+                topology = 2;
+            else
+                topology = 1;
+            end
+            write_case(obj.casename, obj.blk, obj.next_block, obj.next_patch, ...
+                obj.corner, obj.bcs, obj.gas, obj.solver, topology, nkproc);
+        end
+
         function slice = readSingleKSlice(obj,numslice)
             slicetime = readmatrix(fullfile(obj.runpath,'slice_time.txt'));
             slicenums = slicetime(end-obj.nSlices+1:end,1);
@@ -364,10 +375,51 @@ classdef DNS_case < handle
         end
 
         function readProbes(obj)
+            
             f = fopen(fullfile(obj.runpath,'probe.txt'), 'r');
             temp = str2num(char(split(fgetl(f))));
             obj.nProbes = temp(1);
             obj.nSkip = temp(2);
+            fclose(f);
+
+%             for nProbe = 1:obj.nProbes
+%                 temp = str2num(char(split(fgetl(f))));
+%                 blkData.nb = temp(1);
+%                 blkData.i = temp(2);
+%                 blkData.j = temp(3);
+%                 blkData.k = temp(4);
+%                 blkData.x = obj.blk.x{blkData.nb}(blkData.i,blkData.j);
+%                 blkData.y = obj.blk.y{blkData.nb}(blkData.i,blkData.j);
+%                 obj.probes{nProbe} = dnsProbe(obj.runpath, nProbe, obj.nSkip, blkData, obj.gas);
+%             end
+
+            
+            [obj.probes, obj.nProbes, obj.nSkip] = obj.readRunProbes(obj.runpaths{1});
+            if length(obj.run) > 1
+                for ir = 2:length(obj.run)
+
+                    [probesNow, nProbesNow, nSkipNow] = obj.readRunProbes(obj.runpaths{ir});
+                    if nProbesNow ~= obj.nProbes
+                        fprintf('nProbes mismatch\n');
+                        return
+                    elseif nSkipNow ~= obj.nSkip
+                        fprintf('nSkip mismatch\n');
+                        return
+                    else
+                        for ip = 1:obj.nProbes
+                            obj.probes{ip}.concatenate(probesNow{ip});
+                        end
+                    end
+                end
+            end
+        end
+        
+        function [probes, nProbes, nSkip] = readRunProbes(obj, path)
+            path
+            f = fopen(fullfile(path,'probe.txt'), 'r');
+            temp = str2num(char(split(fgetl(f))));
+            nProbes = temp(1);
+            nSkip = temp(2);
             for nProbe = 1:obj.nProbes
                 temp = str2num(char(split(fgetl(f))));
                 blkData.nb = temp(1);
@@ -376,21 +428,77 @@ classdef DNS_case < handle
                 blkData.k = temp(4);
                 blkData.x = obj.blk.x{blkData.nb}(blkData.i,blkData.j);
                 blkData.y = obj.blk.y{blkData.nb}(blkData.i,blkData.j);
-                obj.probes{nProbe} = dnsProbe(obj.runpath, nProbe, obj.nSkip, blkData, obj.gas);
+                probes{nProbe} = dnsProbe(path, nProbe, nSkip, blkData, obj.gas);
             end
             fclose(f);
         end
 
-        function plot_probes(obj, ax)
-            if nargin<2 || isempty(ax)
+        function addProbe(obj, nb, i, j, k)
+            blkData.nb = nb;
+            blkData.i = i;
+            blkData.j = j;
+            if nargin < 5
+                blkData.k = obj.solver.nk/2;
+            else
+                blkData.k = k;
+            end
+            blkData.x = obj.blk.x{blkData.nb}(blkData.i,blkData.j);
+            blkData.y = obj.blk.y{blkData.nb}(blkData.i,blkData.j);
+            obj.probes{end+1} = dnsProbe([], obj.nProbes+1, obj.nSkip, blkData, obj.gas);
+            obj.nProbes = obj.nProbes + 1;
+        end
+
+        function addProbes(obj, newProbes)
+            for i = 1:length(newProbes)
+                blkData.nb = newProbes{i}.nb;
+                blkData.i = newProbes{i}.i;
+                blkData.j = newProbes{i}.j;
+                blkData.k = newProbes{i}.k;
+                blkData.x = obj.blk.x{blkData.nb}(blkData.i,blkData.j);
+                blkData.y = obj.blk.y{blkData.nb}(blkData.i,blkData.j);
+                obj.probes{end+1} = dnsProbe([], obj.nProbes+1, obj.nSkip, blkData, obj.gas);
+            end
+            obj.nProbes = obj.nProbes + length(newProbes);
+        end
+
+        function removeProbes(obj, rmProbes)
+            for i = rmProbes
+                obj.probes(i) = [];
+                obj.nProbes = obj.nProbes-1;
+            end
+        end
+
+        function plot_probes(obj, nProbe, ax)
+            if nargin<3 || isempty(ax)
                 ax = gca;
             end
+            
+            if nargin < 2 || isempty(nProbe)
+                probes_to_plot = 1:obj.nProbes;
+            else
+                probes_to_plot = nProbe;
+            end
+
             hold on
             C = colororder;
             sz = 25;
-            for ip = 1:obj.nProbes
+            for ip = probes_to_plot
                 scatter(ax, obj.probes{ip}.x, obj.probes{ip}.y, sz, C(mod(ip-1,7)+1,:), 'filled')
             end
+        end
+
+        function writeProbeInput(obj, path)
+            if nargin < 2
+                path = obj.casepath;
+            end
+            f = fopen(fullfile(path, 'probe.txt'), 'w');
+
+            fprintf(f,'%d %d\n',[obj.nProbes obj.nSkip]);
+            for ip = 1:obj.nProbes
+                fprintf(f,'%d %d %d %d\n', [obj.probes{ip}.nb obj.probes{ip}.i obj.probes{ip}.j obj.probes{ip}.k]);
+            end
+            
+            fclose(f);
         end
 
         function kPlot(obj,slice,prop,ax,lims,label)
@@ -980,6 +1088,79 @@ classdef DNS_case < handle
             write_input_files(obj.casename,obj.blk,obj.next_block,obj.next_patch,obj.corner,obj.bcs,obj.gas,obj.solver,topology);
         end
 
+        function get_cell_areas(obj)
+            obj.cell_area = {};
+            fprintf('Calculating cell areas\n');
+            for ib = 1:obj.NB
+                fprintf('Block %d\n',ib);
+                for i=1:obj.blk.blockdims(ib,1)-1
+                    for j=1:obj.blk.blockdims(ib,2)-1
+                        xnow = [obj.blk.x{ib}(i,j) obj.blk.x{ib}(i+1,j) ...
+                            obj.blk.x{ib}(i+1,j+1) obj.blk.x{ib}(i,j+1)];
+                        ynow = [obj.blk.y{ib}(i,j) obj.blk.y{ib}(i+1,j) ...
+                            obj.blk.y{ib}(i+1,j+1) obj.blk.y{ib}(i,j+1)];
+
+                        obj.cell_area{ib}(i,j) = abs(polyarea(xnow,ynow));
+                    end
+                end
+            end
+        end
+
+        function [e_unst, e_conv] = mass_balance(obj)
+            if isempty(obj.cell_area)
+                obj.get_cell_areas;
+            end
+            
+            prop = {};
+            for ib=1:obj.NB
+                [drou_dx, ~] = gradHO(obj.blk.x{ib}, obj.blk.y{ib}, obj.meanFlow.ro{ib}.*obj.meanFlow.u{ib});
+                [~, drov_dy] = gradHO(obj.blk.x{ib}, obj.blk.y{ib}, obj.meanFlow.ro{ib}.*obj.meanFlow.v{ib});
+
+                conv_prop{ib} = drou_dx + drov_dy;
+                
+                prop{ib}(:,:,1) = obj.meanFlow.ro{ib}.*obj.meanFlow.u{ib};
+                prop{ib}(:,:,2) = obj.meanFlow.ro{ib}.*obj.meanFlow.v{ib};
+                
+            end
+
+            regions = obj.getIntRegions;
+            [conv_vol, conv_surf] = prop_balance(prop, obj.blk, obj.cell_area, regions);
+            [conv_vol2, conv_surf2] = prop_balance(conv_prop, obj.blk, obj.cell_area, regions);
+
+        end
+
+        function [e_unst, e_s, e_phi, e_irrev, e_rev] = entropy_balance(obj, surface_int)
+            if nargin < 2
+                surface_int = false;
+            end
+
+            if isempty(obj.cell_area)
+                obj.get_cell_areas;
+            end
+
+            for ib = 1:obj.NB
+                s_flux{ib}(:,:,1) = obj.meanFlow.rous{ib};
+                s_flux{ib}(:,:,2) = obj.meanFlow.rovs{ib};
+                q_T_flux{ib}(:,:,1) = obj.meanFlow.rev_gen_x{ib};
+                q_T_flux{ib}(:,:,2) = obj.meanFlow.rev_gen_y{ib};
+            end
+
+            regions = obj.getIntRegions;
+            [e_s_vol, e_s_surf] = prop_balance(s_flux, obj.blk, obj.cell_area, regions);
+            [e_phi, ~] = prop_balance(obj.meanFlow.diss_T, obj.blk, obj.cell_area, regions);
+            [e_irrev, ~] = prop_balance(obj.meanFlow.irrev_gen, obj.blk, obj.cell_area, regions);
+            [e_rev_vol, e_rev_surf] = prop_balance(q_T_flux, obj.blk, obj.cell_area, regions);
+            e_unst = {};
+            
+            if surface_int
+                e_s = e_s_surf;
+                e_rev = e_rev_surf;
+            else
+                e_s = e_s_vol;
+                e_rev = e_rev_vol;
+            end 
+        end
+
         function [e_unst, e_s, e_phi, e_irrev, e_rev] = getEntropyTerms(obj, mF)
 
             if nargin < 2
@@ -1054,7 +1235,9 @@ classdef DNS_case < handle
         end
 
         function plot_diss_regions(obj)
-            [e_unst, e_s, e_phi, e_irrev, e_rev] = obj.getEntropyTerms;
+%             [e_unst, e_s, e_phi, e_irrev, e_rev] = obj.getEntropyTerms;
+            [~, e_s, e_phi, e_irrev, e_rev] = obj.entropy_balance;
+            e_unst = obj.e_unst;
             enow = e_s/e_s(1);
             X = categorical({'Pre-shock', 'Post-shock', 'Trailing edge', 'Wake'});
             X = reordercats(X,{'Pre-shock', 'Post-shock', 'Trailing edge', 'Wake'});
@@ -1069,9 +1252,12 @@ classdef DNS_case < handle
                 normalise = false;
             end
 
-            [e_unst, e_s, e_phi, e_irrev, e_rev] = obj.getEntropyTerms;
+%             [e_unst, e_s, e_phi, e_irrev, e_rev] = obj.getEntropyTerms;
+            [~, e_s, e_phi, e_irrev, e_rev] = obj.entropy_balance;
             if ~isempty(obj.e_unst)
                 e_unst = obj.e_unst
+            else
+                e_unst = zeros(size(e_s));
             end
             normalise
 
@@ -1122,7 +1308,6 @@ classdef DNS_case < handle
             set(gca, 'XTickLabelRotation',20)
         end
         
-
         function value = get.Re_k(obj)
             if isempty(obj.trip)
                 obj.setTrip;
@@ -1163,6 +1348,59 @@ classdef DNS_case < handle
             [~, regions{4}.ie] = min(abs(obj.blk.x{10}(:,obj.blk.blockdims(10,2)/2) - xMaxWake));
             regions{4}.js = 1; regions{4}.je = obj.blk.blockdims(10,2);
         end
+
+        function interpInstFlow(obj, newcase)
+            for ib = 1:obj.NB
+                oldFlow = volFlowBlock(obj.runpath, ib, obj.blk, obj.gas);
+                newFlow = oldFlow.interpOntoNewGrid(newcase, ib);
+                newFlow.writeFlow(newcase.casepath)
+                clear oldFlow newFlow
+            end
+        end
+
+        function updateBlk(obj, newblk)
+            obj.blk.x = newblk.x;
+            obj.blk.y = newblk.y;
+            obj.blk.nk = newblk.nk;
+            obj.blk.npp = newblk.npp;
+            obj.blk.z = linspace(0, obj.solver.span, obj.blk.nk{1});
+            obj.blk.blockdims = newblk.blockdims;
+
+            y_inlet = [];
+            for i=1:length(obj.blk.inlet_blocks{1})
+                y_inlet = [y_inlet obj.blk.y{obj.blk.inlet_blocks{1}(i)}(1,:,1)];
+                ymidnow(i) = obj.blk.y{obj.blk.inlet_blocks{1}(i)}(1,ceil(end/2));
+            end
+            obj.y_inlet = sort(unique(y_inlet));
+            obj.nj_inlet = length(obj.y_inlet);
+            obj.inlet_width = max(obj.y_inlet) - min(obj.y_inlet);
+        
+        end
+
+        function [i,j] = find_ij(obj, nb, x, y)
+            xnow = obj.blk.x{nb};
+            ynow = obj.blk.y{nb};
+            ds = sqrt((xnow-x).^2 + (ynow-y).^2);
+            [~,ind] = min(ds,[],'all');
+            [i,j] = ind2sub(size(xnow),ind);
+        end
+
+        function newProbes = interp_probes(obj, oldCase)
+            oldProbes = oldCase.probes;
+            newProbes = {};
+            for ip = 1:oldCase.nProbes
+                [i,j] = obj.find_ij(oldProbes{ip}.nb,oldProbes{ip}.x,oldProbes{ip}.y);
+                blkData.i = i; blkData.j = j;
+                blkData.k = obj.solver.nk/2;
+                blkData.x = obj.blk.x{oldProbes{ip}.nb}(i,j);
+                blkData.y = obj.blk.y{oldProbes{ip}.nb}(i,j);
+                blkData.nb = oldProbes{ip}.nb;
+                newProbes{ip} = dnsProbe([],ip,obj.nSkip,blkData,obj.gas);
+            end
+        end
+        
+
+        
 
     end
 end
