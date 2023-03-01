@@ -17,12 +17,10 @@ classdef RANSSlice < aveSlice
     properties (Dependent = true)
         Pr;             % Turbulence production
         Pr_dist;
-        p;
-        T;
     end
 
     methods
-        function obj = RANSSlice(basedir, datafile, trans, mod, blk, gas, nodes)
+        function obj = RANSSlice(blk, gas, basedir, datafile, trans, mod, nodes)
             obj@aveSlice(blk, gas);
             disp('Constructing RANSSlice')
             %obj.blk = blk;
@@ -152,8 +150,8 @@ classdef RANSSlice < aveSlice
             value = cell(1,obj.NB);
             for nb = 1:obj.NB
                 value{nb} = obj.mut{nb}.*obj.StR{nb}.^2;
-                [DUDX,DUDY] = gradHO(obj.blk.x{nb},obj.blk.y{nb},obj.u{nb});
-                [DVDX,DVDY] = gradHO(obj.blk.x{nb},obj.blk.y{nb},obj.v{nb});
+%                 [DUDX,DUDY] = gradHO(obj.blk.x{nb},obj.blk.y{nb},obj.u{nb});
+%                 [DVDX,DVDY] = gradHO(obj.blk.x{nb},obj.blk.y{nb},obj.v{nb});
                 %value{nb} = (obj.mut{nb}.*DUDX.^2 + obj.mut{nb}.*(DUDY.^2+DVDX.^2) + obj.mut{nb}.*DVDY.^2);
             end
         end

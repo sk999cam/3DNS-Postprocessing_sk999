@@ -1,7 +1,7 @@
 function blkNodes = writeFluentMesh(path, blk, next_block, next_patch, iWrite)
 
     if nargin < 5
-        iWrite = true
+        iWrite = true;
     end
     
     NB = length(blk.x);

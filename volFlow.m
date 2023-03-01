@@ -39,8 +39,8 @@ classdef volFlow
     end
 
     methods
-        function obj = volFlow(casedir, blk, gas)
-            
+        function obj = volFlow(casedir, blk, gas, casetype)
+
             if nargin > 0
                 blockdims = blk.blockdims;
                 obj.blk = blk;
@@ -52,27 +52,9 @@ classdef volFlow
     
                 obj.NB = size(blockdims,1);
                 for nb = 1:obj.NB
-                    
-                    fprintf('Reading block %d/%d\n',[nb, obj.NB])
-                    flopath = fullfile(casedir,  ['flo2_' num2str(nb)]);
-                    flofile = fopen(flopath,'r');
-                    nodfile = fopen(fullfile(casedir, ['nod2_' num2str(nb)]),'r');
-                    %viscpath = fullfile(casedir,  ['visc_' num2str(nb)]);
-                    %viscfile = fopen(viscpath,'r');
-
-                    A = fread(flofile,inf,'float64');
-                    A = reshape(A,5,length(A)/5);
-                    
-                    B = fread(nodfile,inf,'uint32');
-                    B = reshape(B,3,length(B)/3);
-
-%                     C = fread(viscfile,inf,'float64');
-%                     C = reshape(C,13,length(C)/13 );
-
-            
-                    fclose(flofile);
-                    fclose(nodfile);
     
+                    fprintf('Reading block %d/%d\n',[nb, obj.NB])
+
                     ro = zeros(blockdims(nb,1),blockdims(nb,2),blockdims(nb,3));
                     ru = zeros(blockdims(nb,1),blockdims(nb,2),blockdims(nb,3));
                     rv = zeros(blockdims(nb,1),blockdims(nb,2),blockdims(nb,3));
@@ -84,16 +66,57 @@ classdef volFlow
                     tau_xy = zeros(blockdims(nb,1),blockdims(nb,2),blockdims(nb,3));
                     tau_xz = zeros(blockdims(nb,1),blockdims(nb,2),blockdims(nb,3));
                     tau_yz = zeros(blockdims(nb,1),blockdims(nb,2),blockdims(nb,3));
-    
-                    for n=1:size(A,2)
-                        i = B(1,n);
-                        j = B(2,n);
-                        k = B(3,n);
-                        ro(i,j,k) = A(1,n);
-                        ru(i,j,k) = A(2,n);
-                        rv(i,j,k) = A(3,n);
-                        rw(i,j,k) = A(4,n);
-                        Et(i,j,k) = A(5,n);
+
+                    switch casetype
+                        case 'cpu'
+                            if exist(fullfile(casedir, 'inst_flo'), 'dir')
+                                flopath = fullfile(casedir, 'inst_flo', ['flo2_' num2str(nb)]);
+                                flofile = fopen(flopath,'r');
+                                nodfile = fopen(fullfile(casedir, 'inst_flo', ['nod2_' num2str(nb)]),'r');
+                            else
+                                flopath = fullfile(casedir,  ['flo2_' num2str(nb)]);
+                                flofile = fopen(flopath,'r');
+                                nodfile = fopen(fullfile(casedir, ['nod2_' num2str(nb)]),'r');
+                            end
+                            %viscpath = fullfile(casedir,  ['visc_' num2str(nb)]);
+                            %viscfile = fopen(viscpath,'r');
+        
+                            A = fread(flofile,inf,'float64');
+                            A = reshape(A,5,length(A)/5);
+                            
+                            B = fread(nodfile,inf,'uint32');
+                            B = reshape(B,3,length(B)/3);
+        
+        %                     C = fread(viscfile,inf,'float64');
+        %                     C = reshape(C,13,length(C)/13 );
+        
+                    
+                            fclose(flofile);
+                            fclose(nodfile);
+            
+                            for n=1:size(A,2)
+                                i = B(1,n);
+                                j = B(2,n);
+                                k = B(3,n);
+                                ro(i,j,k) = A(1,n);
+                                ru(i,j,k) = A(2,n);
+                                rv(i,j,k) = A(3,n);
+                                rw(i,j,k) = A(4,n);
+                                Et(i,j,k) = A(5,n);
+                            end
+                        case 'gpu'
+                            ni = blk.blockdims(nb,1);
+                            nj = blk.blockdims(nb,2);
+                            nk = blk.blockdims(nb,3);
+                            fid = fopen(fullfile(casedir, ['flow_' num2str(nb)]));
+                            A = fread(fid, ni*nj*nk*5, 'float64');
+                            A = reshape(A, 5, length(A)/5)';
+
+                            ro = reshape(A(:,1),ni,nj,nk);
+                            ru = reshape(A(:,2),ni,nj,nk);
+                            rv = reshape(A(:,3),ni,nj,nk);
+                            rw = reshape(A(:,4),ni,nj,nk);
+                            Et = reshape(A(:,5),ni,nj,nk);
                     end
     
                     obj.ro{nb} = ro;
@@ -243,12 +266,7 @@ classdef volFlow
                 k = floor(obj.nk/2);
             end
 
-            value = kSlice(); %(obj.blk.blockdims, obj.gas);
-            value.gam = obj.gam;
-            value.cp = obj.gas.cp;
-            value.rgas = obj.cp*(1-1/obj.gam);
-            value.NB = size(obj.blk.blockdims,1);
-            value.blk = obj.blk;
+            value = kSlice(obj.blk, obj.gas); %(obj.blk.blockdims, obj.gas);
 
             for nb=1:obj.NB
                 nb;
@@ -368,7 +386,8 @@ classdef volFlow
             newcase.instFlow = newFlow;
         end
 
-        function writeFlowBlock(obj, path, nb)
+        function writeFlowBlock(obj, path, nb, type)
+            
             ronow = obj.ro{nb};
             runow = ronow.*obj.u{nb};
             rvnow = ronow.*obj.v{nb};

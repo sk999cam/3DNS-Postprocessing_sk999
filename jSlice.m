@@ -172,8 +172,6 @@ classdef jSlice < handle
         end
 
         function jPlot(obj,prop,ax,lims,label)
-            lims
-            label
             if nargin < 3 || isempty(ax)
                 ax = gca;
             end
@@ -188,10 +186,9 @@ classdef jSlice < handle
             
             cb = colorbar('southoutside');
             if nargin > 3 && ~isempty(lims)
-                caxis(lims)
+                caxis(lims);
             end
             if nargin > 4 && ~isempty(label)
-                disp('Here')
                 cb.Label.String = label;
                 cb.FontSize = 9;
             end

@@ -1,6 +1,7 @@
 clear
 close all
-proffile = '../isolated_aerofoils/r150_cwl_90/r150_aerofoil/r150_aerofoil.txt';
+proffile = '../isolated_aerofoils/generic/hst_aerofoil.txt';
+% proffile = '../isolated_aerofoils/r150_cwl_90/r150_aerofoil.txt';
 
 [xprof,yprof,pitch,stag] = read_profile(proffile,true);
 msmooths=50;
@@ -59,9 +60,12 @@ for i=1:NB
     plot(xnew',ynew','k');
 end
 axis equal
-
+blktmp = blk;
+clear blk
 for i=1:NB
-    blk_dims(i,:) = size(blk{i}.x);
+    blk_dims(i,:) = size(blktmp{i}.x);
+    blk.x{i} = blktmp{i}.x;
+    blk.y{i} = blktmp{i}.y;
 end
 disp('Final grid block dims:')
 blk_dims

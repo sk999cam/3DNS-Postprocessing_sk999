@@ -2,7 +2,7 @@ function r = fexpan(L_over_a,N)
 % solve (L/a) - r(L/a) + r^N - 1 = 0
 
 if(abs(L_over_a-N) < 1e-12)
-r = 1.0
+r = 1.0;
 return
 elseif( L_over_a>N )
 r = 1.00001;

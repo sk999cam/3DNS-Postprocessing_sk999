@@ -8,12 +8,12 @@ classdef meanSlice < aveSlice
         meanTime;
         Pr;             % Turbulence production
         diss;
+        pbar;
+        Tbar;
         rev_gen_x;
         rev_gen_y;
         irrev_gen;
         diss_T;
-        p;
-        T;
         span;
         nk;
         rous;
@@ -27,11 +27,20 @@ classdef meanSlice < aveSlice
         e_rev = [];
         e_Pr = [];
         e_diss = [];
+        roUddUdd;
+        roVddVdd;
+        roWddWdd;
+        roUddVdd;
+        roUddWdd;
+        roVddWdd;
     end
 
     properties (Dependent = true)
         eta_Kol         % Kolmogorov scale
         cellSize_Kol;   % Cell size/ Kolmogorov scale
+        mut_opt;
+        mut_ratio;
+        tau_Re;
     end
 
     methods
@@ -81,11 +90,11 @@ classdef meanSlice < aveSlice
                     fclose(flofile);
                     fclose(nodfile);
     
-                    rodt = zeros(blk.blockdims(nb,1),blk.blockdims(nb,2));
-                    rudt = zeros(blk.blockdims(nb,1),blk.blockdims(nb,2));
-                    rvdt = zeros(blk.blockdims(nb,1),blk.blockdims(nb,2));
-                    rwdt = zeros(blk.blockdims(nb,1),blk.blockdims(nb,2));
-                    Etdt = zeros(blk.blockdims(nb,1),blk.blockdims(nb,2));
+                    ro = zeros(blk.blockdims(nb,1),blk.blockdims(nb,2));
+                    ru = zeros(blk.blockdims(nb,1),blk.blockdims(nb,2));
+                    rv = zeros(blk.blockdims(nb,1),blk.blockdims(nb,2));
+                    rw = zeros(blk.blockdims(nb,1),blk.blockdims(nb,2));
+                    Et = zeros(blk.blockdims(nb,1),blk.blockdims(nb,2));
 
                     ro2 = zeros(blk.blockdims(nb,1),blk.blockdims(nb,2));
                     rou2 = zeros(blk.blockdims(nb,1),blk.blockdims(nb,2));
@@ -120,11 +129,11 @@ classdef meanSlice < aveSlice
 
                             icount(sub2ind(sz,i,j)) = 1;
 
-                            rodt(i,j) = A(1,n);
-                            rudt(i,j) = A(2,n);
-                            rvdt(i,j) = A(3,n);
-                            rwdt(i,j) = A(4,n);
-                            Etdt(i,j) = A(5,n);
+                            ro(i,j) = A(1,n)/obj.meanTime;
+                            ru(i,j) = A(2,n)/obj.meanTime;
+                            rv(i,j) = A(3,n)/obj.meanTime;
+                            rw(i,j) = A(4,n)/obj.meanTime;
+                            Et(i,j) = A(5,n)/obj.meanTime;
     
                             ro2(i,j) = A(6,n)/obj.meanTime;
                             rou2(i,j) = A(7,n)/obj.meanTime;
@@ -160,14 +169,18 @@ classdef meanSlice < aveSlice
                             end
                         end
                     end
-    
-                    obj.ro{nb} = rodt/obj.meanTime;
-                    obj.u{nb} = rudt./(rodt);
-                    obj.v{nb} = rvdt./(rodt);
-                    obj.w{nb} = rwdt./(rodt);
-                    obj.Et{nb} = Etdt/obj.meanTime;
-                    obj.p{nb} = (Etdt/obj.meanTime - 0.5*(rou2 + rov2 + row2))*(obj.gas.gam-1);
-                    obj.T{nb} = (obj.p{nb}.*obj.gas.gam)./(obj.gas.cp*(obj.gas.gam-1)*obj.ro{nb});
+
+                    u = ru./ro;
+                    v = rv./ro;
+                    w = rw./ro;
+
+                    obj.ro{nb} = ro;
+                    obj.u{nb} = u;
+                    obj.v{nb} = v;
+                    obj.w{nb} = w;
+                    obj.Et{nb} = Et;
+                    obj.pbar{nb} = (Et - 0.5*(rou2 + rov2 + row2))*(obj.gas.gam-1);
+                    obj.Tbar{nb} = (obj.pbar{nb}.*obj.gas.gam)./(obj.gas.cp*(obj.gas.gam-1)*obj.ro{nb});
                     obj.diss{nb} = diss;
                     obj.rous{nb} = rous;
                     obj.rovs{nb} = rovs;
@@ -176,12 +189,23 @@ classdef meanSlice < aveSlice
                     [DUDX,DUDY] = gradHO(blk.x{nb},blk.y{nb},obj.u{nb});
                     [DVDX,DVDY] = gradHO(blk.x{nb},blk.y{nb},obj.v{nb});
 
-                    UdUd = rou2./obj.ro{nb} - obj.u{nb}.*obj.u{nb};
-                    UdVd = rouv./obj.ro{nb} - obj.u{nb}.*obj.v{nb};
-                    VdVd = rov2./obj.ro{nb} - obj.v{nb}.*obj.v{nb};
-                    WdWd = row2./obj.ro{nb} - obj.w{nb}.*obj.w{nb};
+                    UdUd = rou2./ro - u.*u;
+                    VdVd = rov2./ro - v.*v;
+                    WdWd = row2./ro - w.*w;
 
-                    obj.Pr{nb} = -(UdUd.*DUDX + UdVd.*(DUDY+DVDX) + VdVd.*DVDY);
+                    UdVd = rouv./ro - u.*v;
+                    UdWd = rouw./ro - u.*w;
+                    VdWd = rovw./ro - v.*w;
+
+                    obj.roUddUdd{nb} = rou2 - ro.*u.*u;
+                    obj.roVddVdd{nb} = rov2 - ro.*v.*v;
+                    obj.roWddWdd{nb} = row2 - ro.*w.*w;
+
+                    obj.roUddVdd{nb} = rouv - ro.*u.*v;
+                    obj.roUddWdd{nb} = rouw - ro.*u.*w;
+                    obj.roVddWdd{nb} = rovw - ro.*v.*w;
+
+                    obj.Pr{nb} = -ro.*(UdUd.*DUDX + UdVd.*(DUDY+DVDX) + VdVd.*DVDY);
                     obj.diss{nb} = diss;
                     obj.k{nb} = 0.5*(UdUd + VdVd + WdWd);
 
@@ -233,7 +257,10 @@ classdef meanSlice < aveSlice
 
         function addSlice(obj, newSlice)
             props2add = {"Pr", "diss", "rev_gen_x", "rev_gen_y", "irrev_gen", "diss_T", "p", "T", ...
-                "rous", "rovs", "k", "advK", "ro", "u", "v", "w", "Et"};
+                "rous", "rovs", "rows", "k", "advK", "ro", "u", "v", "w", "Et", ...
+                "roUddUdd", "roVddVdd", "roWddWdd", "roUddVdd", "roUddWdd", "roVddWdd"};
+
+
             tot_time = obj.meanTime + newSlice.meanTime;
 
             for ip = 1:length(props2add)
@@ -261,6 +288,119 @@ classdef meanSlice < aveSlice
                 value{ib} = csnow{ib}./etanow{ib};
             end
         end
+
+        function value = get.mut_opt(obj)
+            for ib = 1:obj.NB
+
+                [DUDX,DUDY] = gradHO(obj.blk.x{ib},obj.blk.y{ib},obj.u{ib});
+                [DVDX,DVDY] = gradHO(obj.blk.x{ib},obj.blk.y{ib},obj.v{ib});
+
+                S = zeros(obj.blk.blockdims(ib,1),obj.blk.blockdims(ib,2),3,3);
+                tau = S;
+                
+                S(:,:,1,1) = 2*DUDX/3 - DVDY/3;
+                S(:,:,2,2) = 2*DVDY/3 - DUDX/3;
+                S(:,:,3,3) = -(DUDX+DVDY)/3;
+
+                S(:,:,1,2) = 0.5*(DUDY+DVDX);
+                S(:,:,2,1) = S(:,:,1,2);
+
+                
+                tau(:,:,1,1) = -2*obj.roUddUdd{ib}/3 + obj.roVddVdd{ib}/3 + obj.roWddWdd{ib}/3;
+                tau(:,:,2,2) = -2*obj.roVddVdd{ib}/3 + obj.roUddWdd{ib}/3 + obj.roUddWdd{ib}/3;
+                tau(:,:,3,3) = -2*obj.roWddWdd{ib}/3 + obj.roUddUdd{ib}/3 + obj.roVddVdd{ib}/3;
+
+                tau(:,:,1,2) = -obj.roUddVdd{ib};
+                tau(:,:,2,1) = tau(:,:,1,2);
+
+                num = sum(sum(tau.*S,4),3);
+                den = sum(sum(S.*S,4),3);
+                den = sign(den).*min(2000*2, abs(den));
+
+                mask  = sqrt(abs(den)) < 2000;
+
+                mask = 0.5.*(1 + tanh((obj.blk.x{ib}-0.14)*100));
+
+                value{ib} = 0.5*mask.*abs(num./den);
+
+            end
+        end
+
+        function value = get.tau_Re(obj)
+            for ib = 1:obj.NB
+
+                [DUDX,DUDY] = gradHO(obj.blk.x{ib},obj.blk.y{ib},obj.u{ib});
+                [DVDX,DVDY] = gradHO(obj.blk.x{ib},obj.blk.y{ib},obj.v{ib});
+
+                S = zeros(obj.blk.blockdims(ib,1),obj.blk.blockdims(ib,2),3,3);
+                tau = S;
+                
+                S(:,:,1,1) = 2*DUDX/3 - DVDY/3;
+                S(:,:,2,2) = 2*DVDY/3 - DUDX/3;
+                S(:,:,3,3) = -(DUDX+DVDY)/3;
+
+                S(:,:,1,2) = 0.5*(DUDY+DVDX);
+                S(:,:,2,1) = S(:,:,1,2);
+
+                
+                tau(:,:,1,1) = -2*obj.roUddUdd{ib}/3 + obj.roVddVdd{ib}/3 + obj.roWddWdd{ib}/3;
+                tau(:,:,2,2) = -2*obj.roVddVdd{ib}/3 + obj.roUddUdd{ib}/3 + obj.roWddWdd{ib}/3;
+                tau(:,:,3,3) = -2*obj.roWddWdd{ib}/3 + obj.roUddUdd{ib}/3 + obj.roVddVdd{ib}/3;
+
+                tau(:,:,1,2) = -obj.roUddVdd{ib};
+                tau(:,:,2,1) = tau(:,:,1,2);
+
+                value{ib} = sum(sum(tau.*tau,4),3);
+            end
+        end
+
+        function write_mut_opt_input(obj, folder)
+
+            mto = obj.mut_opt;
+            for ib = 1:obj.NB
+
+                tau_Re_tr = 2*obj.ro{ib}.*obj.k{ib}/3;
+                
+                n = 1;
+                A = [];
+                B = [];
+
+                for i=1:obj.blk.blockdims(ib,1)
+                    for j=1:obj.blk.blockdims(ib,2)
+                        A(n) = mto{ib}(i,j);
+                        A(n+1) = tau_Re_tr(i,j);
+                        B(n) = i;
+                        B(n+1) = j;
+                        n = n+2;
+                    end
+                end
+                
+                mto_file = fopen(fullfile(folder, ['mut_opt_' num2str(ib)]),'w');
+                nod_file = fopen(fullfile(folder, ['mto_nod_' num2str(ib)]),'w');
+                
+                fwrite(mto_file,A,'float64');
+                fwrite(nod_file,B,'int32');
+                fclose(mto_file);
+                fclose(nod_file);
+            end
+        end
+
+        function value = get.mut_ratio(obj)
+            mto = obj.mut_opt;
+            munow = obj.mu;
+            for ib = 1:obj.NB
+                value{ib} = mto{ib}./munow{ib};
+            end
+        end
+
+        function value = get_p(obj)
+            value = obj.pbar;
+        end
+
+        function value = get_T(obj)
+            value = obj.Tbar;
+        end
+
 
 %         function value = get.dsdy(obj)
 %             s = obj.oGridProp('s');

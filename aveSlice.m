@@ -1,4 +1,4 @@
-classdef aveSlice < flowSlice
+classdef aveSlice < kCut
     % MEANSLICE Contains the 2D (spanwise averaged) mean flow
 
         
@@ -7,6 +7,8 @@ classdef aveSlice < flowSlice
         Uinf;
         roinf;
         muinf;
+        Tinf;
+        T0in;
         dsdyThresh = -50;
         use_unsflo = false;
         blEdgeMode;
@@ -33,6 +35,7 @@ classdef aveSlice < flowSlice
         dsdy;           % Wall normal entropy gradient
         %BLedgeInd;      % j index of detected BL edge
         U;              % Wall-parallel velocity
+        Ue;             % BL edge velocity
         Res;            % Surface distance Reynolds No
         blPr;           % Componant of cd due to production of tke
         blPr_eq;        % Coles' equilibrium prodution
@@ -40,6 +43,7 @@ classdef aveSlice < flowSlice
         dUdy;
         dTdy;
         cf;
+        ctau;
         Re_theta;
         pdyn            % Dynamic pressure, 0.5*rho*V^2
         nu_e            % Boundary layer edge viscosity
@@ -49,34 +53,42 @@ classdef aveSlice < flowSlice
 
     methods
         function obj = aveSlice(blk, gas)
-            obj@flowSlice(blk, gas);
+            obj@kCut(blk, gas);
             disp('Constructing aveSlice')
         end
 
-        function getBCs(obj, inlet_blocks)
+        function getBCs(obj, inlet_blocks, is)
+            if nargin < 3
+                is = 40:100;
+            end
             Mnow = obj.M;
             Unow = obj.vel;
             ronow = obj.ro;
             munow = obj.mu;
             %Mnow = Mnow{inlet_blocks};
             pnow = obj.p;
+            Tnow = obj.T;
             %pnow = pnow{inlet_blocks};
             
             p0 = [];
             Uinf = [];
             muinf = [];
             roinf = [];
+            Tinf = [];
             for i=1:length(inlet_blocks)
                 p0now = pnow{inlet_blocks(i)}.*(1+((obj.gas.gam - 1)/2)*Mnow{inlet_blocks(i)}.^2).^(obj.gas.gam/(obj.gas.gam-1));
-                p0 = [p0 p0now(40:100,:)];
-                Uinf = [Uinf Unow{inlet_blocks(i)}(40:100,:)];
-                muinf = [muinf munow{inlet_blocks(i)}(40:100,:)];
-                roinf = [roinf ronow{inlet_blocks(i)}(40:100,:)];
+                p0 = [p0 p0now(is,:)];
+                Tinf = [Tinf Tnow{inlet_blocks(i)}(is,:)];
+                Uinf = [Uinf Unow{inlet_blocks(i)}(is,:)];
+                muinf = [muinf munow{inlet_blocks(i)}(is,:)];
+                roinf = [roinf ronow{inlet_blocks(i)}(is,:)];
             end
             obj.p0in = mean(p0,'all');
+            obj.Tinf = mean(Tinf, 'all');
             obj.Uinf = mean(Uinf,'all');
             obj.muinf = mean(muinf,'all');
             obj.roinf = mean(roinf,'all');
+            obj.T0in = obj.Tinf+obj.Uinf^2/(2*obj.gas.cp);
         end
 
         function value = get.dsdy(obj)
@@ -87,8 +99,8 @@ classdef aveSlice < flowSlice
         end
 
         function value = get.dUdy(obj)
-            u = obj.oGridProp('U');
-            value = (u(:,2:end)-u(:,1:end-1))./(obj.yBL(:,2:end)-obj.yBL(:,1:end-1));
+%             u = obj.oGridProp('U');
+%             value = (u(:,2:end)-u(:,1:end-1))./(obj.yBL(:,2:end)-obj.yBL(:,1:end-1));
             value = obj.blNormGrad('U');
         end 
 
@@ -397,7 +409,11 @@ classdef aveSlice < flowSlice
             q = obj.(prop);
 
             if nargin > 5 && ~isempty(fmt)
-                plt = plot(ax,obj.xSurf,q,fmt);
+                if isempty(xrange)
+                    plt = plot(ax,obj.xSurf,q,fmt);
+                else
+                    plt = plot(ax,obj.xSurf(obj.xSurf>xrange(1)&obj.xSurf<xrange(2)),q(obj.xSurf>xrange(1)&obj.xSurf<xrange(2)),fmt);
+                end
             elseif nargin>4 && ~isempty(xrange)
                 plt = plot(ax,obj.xSurf(obj.xSurf>xrange(1)&obj.xSurf<xrange(2)),q(obj.xSurf>xrange(1)&obj.xSurf<xrange(2)));
             else
@@ -410,7 +426,7 @@ classdef aveSlice < flowSlice
         end
 
         function [locus_line, eq_line] = plot_H_Pr_locus(obj, ax, ploteq, xrange, fmt, lineColour)
-            if nargin < 3 || isempty(ax)
+            if nargin < 2 || isempty(ax)
                 ax = gca;
             end
 
@@ -448,14 +464,26 @@ classdef aveSlice < flowSlice
         end
 
         function value = get.blPr(obj)
+%             inds = obj.BLedgeInd;
+%             Prnow = obj.oGridProp('Pr');
+%             Unow = obj.U;
+%             for i=1:size(obj.yBL,1)
+%                 Prprof = Prnow(i,1:inds(i));
+%                 Ue = Unow(i,inds(i));
+%                 ys = obj.yBL(i,1:inds(i));
+%                 value(i) = trapz(ys, Prprof)/Ue^3;
+%             end
+
             inds = obj.BLedgeInd;
             Prnow = obj.oGridProp('Pr');
+            ronow = obj.oGridProp('ro');
             Unow = obj.U;
             for i=1:size(obj.yBL,1)
                 Prprof = Prnow(i,1:inds(i));
                 Ue = Unow(i,inds(i));
+                roe = ronow(i, inds(i));
                 ys = obj.yBL(i,1:inds(i));
-                value(i) = trapz(ys, Prprof)/Ue^3;
+                value(i) = trapz(ys, Prprof)/(roe*Ue^3);
             end
         end
 
@@ -479,6 +507,17 @@ classdef aveSlice < flowSlice
 
         end
 
+        function value = get.Ue(obj)
+            inds = obj.BLedgeInd;
+            Unow = obj.U;
+            Misen = obj.Msurf;
+            Tisen = obj.T0in./(1+((obj.gas.gam-1)/2)*Misen.^2);
+            value = Misen.*sqrt(obj.gas.cp*(obj.gas.gam-1)*Tisen);                                               
+%             for i=1:length(inds)
+%                 value(i) = Unow(i,inds(i));
+%             end
+        end
+
         function value = get.cf(obj)
             inds = obj.BLedgeInd;
             ronow = obj.oGridProp('ro');
@@ -489,6 +528,23 @@ classdef aveSlice < flowSlice
             end
             value = obj.tau_w'./(0.5*roe.*Ue.*Ue);
         end
+
+
+
+        function value = get.ctau(obj)
+            inds = obj.BLedgeInd;
+            Uenow = obj.Ue;
+            ronow = obj.oGridProp('ro');
+            for i=1:length(inds)
+                roe(i) = ronow(i,inds(i));
+            end
+            Prnow = obj.oGridProp('Pr');
+            dUdynow = obj.dUdy;
+            tau = Prnow./dUdynow;
+            value = max(tau,[],2)./(roe'.*Uenow.^2);
+        end
+                
+                
 
         function value = get.pdyn(obj)
             inds = obj.BLedgeInd;

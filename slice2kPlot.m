@@ -1,4 +1,4 @@
-function slice2kPlot(slice, blk, prop, fpath, lims, label)
+function slice2kPlot(slice, blk, prop, fpath, lims, label, area, aspect)
     h = figure('Visible','off');
     ax = axes(h);
   
@@ -9,8 +9,10 @@ function slice2kPlot(slice, blk, prop, fpath, lims, label)
         pcolor(ax, blk.x{i}, blk.y{i}, q{i});
     end
     shading('interp')
-    axis([-0.6 2 -0.5 0.5])
     axis equal
+    pbaspect(aspect)
+    axis(area)
+    axis off
     cb = colorbar(ax);
     if nargin > 4 && ~isempty(lims)
         caxis(lims);

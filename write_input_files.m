@@ -14,7 +14,7 @@ NB = length(blk.x);
 ncorner = length(corner);   
 
 dir = fullfile(pwd,casename);
-fprintf('Writing to directory: %s\n',dir)
+fprintf('Writing input files to directory: %s\n',dir)
 
 if(~exist(dir,'dir'))
 mkdir(dir);
@@ -249,6 +249,9 @@ end
     elseif topology == 2
         fprintf(fidin,'%d\n', [3]);   
         fprintf(fidin,'%d\n%d\n%d\n', [1 2 3]);
+    elseif topology == 3
+        fprintf(fidin,'%d\n', [1]);   
+        fprintf(fidin,'%d\n', [1]);
     end
      
     % stability stuff   

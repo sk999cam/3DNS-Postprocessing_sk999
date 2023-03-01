@@ -302,7 +302,10 @@ classdef volFlowBlock
 
         end
 
-        function writeFlow(obj, path)
+        function writeFlow(obj, path, casetype)
+            if nargin < 3
+                casetype = 'cpu'
+            end
             fprintf('Writing flow in block %d\n',obj.ib)
 
             ronow = obj.ro;
@@ -312,35 +315,57 @@ classdef volFlowBlock
             Etnow = obj.Et;
 
             fpos = 0;
-            for i=1:size(obj.ro,1)
-                for j=1:size(obj.ro,2)
-                    for k=1:size(obj.ro,3)
-                        fpos = fpos+1;
-                        B(1, fpos) = i;
-                        B(2, fpos) = j;
-                        B(3,fpos) = k;
-
-                        A(1,fpos) = ronow(i,j,k);
-                        A(2,fpos) = runow(i,j,k);
-                        A(3,fpos) = rvnow(i,j,k);
-                        A(4,fpos) = rwnow(i,j,k);
-                        A(5,fpos) = Etnow(i,j,k);
+            switch casetype
+                case 'cpu'
+                    for i=1:size(obj.ro,1)
+                        for j=1:size(obj.ro,2)
+                            for k=1:size(obj.ro,3)
+                                fpos = fpos+1;
+                                B(1, fpos) = i;
+                                B(2, fpos) = j;
+                                B(3,fpos) = k;
+        
+                                A(1,fpos) = ronow(i,j,k);
+                                A(2,fpos) = runow(i,j,k);
+                                A(3,fpos) = rvnow(i,j,k);
+                                A(4,fpos) = rwnow(i,j,k);
+                                A(5,fpos) = Etnow(i,j,k);
+                            end
+                        end
                     end
-                end
+        
+                    flopath = fullfile(path,  ['flo2_' num2str(obj.ib)]);
+                    flofile = fopen(flopath,'w');
+                    nodfile = fopen(fullfile(path, ['nod2_' num2str(obj.ib)]),'w');
+                    %viscpath = fullfile(casedir,  ['visc_' num2str(nb)]);
+                    %viscfile = fopen(viscpath,'r');
+        
+                    fwrite(flofile,A,'float64');
+                    fwrite(nodfile,B,'uint32');
+        
+            
+                    fclose(flofile);
+                    fclose(nodfile);
+
+                case 'gpu'
+                    for k=1:size(obj.ro,3)
+                        for j=1:size(obj.ro,2)
+                            for i=1:size(obj.ro,1)
+                                fpos = fpos+1;
+                                A(1,fpos) = ronow(i,j,k);
+                                A(2,fpos) = runow(i,j,k);
+                                A(3,fpos) = rvnow(i,j,k);
+                                A(4,fpos) = rwnow(i,j,k);
+                                A(5,fpos) = Etnow(i,j,k);
+                            end
+                        end
+                    end
+        
+                    flopath = fullfile(path,  ['flow_' num2str(obj.ib)]);
+                    flofile = fopen(flopath,'w');
+                    fwrite(flofile,A,'float64');
+                    fclose(flofile);
             end
-
-            flopath = fullfile(path,  ['flo2_' num2str(obj.ib)]);
-            flofile = fopen(flopath,'w');
-            nodfile = fopen(fullfile(path, ['nod2_' num2str(obj.ib)]),'w');
-            %viscpath = fullfile(casedir,  ['visc_' num2str(nb)]);
-            %viscfile = fopen(viscpath,'r');
-
-            fwrite(flofile,A,'float64');
-            fwrite(nodfile,B,'uint32');
-
-    
-            fclose(flofile);
-            fclose(nodfile);
         end
 
         

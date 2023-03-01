@@ -31,11 +31,15 @@ parfor ib=1:mF.NB
     [dsdx,dsdy] = gradHO(mF.blk.x{ib},mF.blk.y{ib},mF.s{ib});
     [dqx_Tdx,~] = gradHO(mF.blk.x{ib},mF.blk.y{ib},mF.rev_gen_x{ib});
     [~,dqy_Tdy] = gradHO(mF.blk.x{ib},mF.blk.y{ib},mF.rev_gen_y{ib});
+    [drousdx, ~] = gradHO(mF.blk.x{ib},mF.blk.y{ib},mF.rous{ib});
+    [~, drovsdy] = gradHO(mF.blk.x{ib},mF.blk.y{ib},mF.rovs{ib});
 
     unst_prop = mF.ro{ib}.*mF.s{ib};
 
-    conv_prop = mF.ro{ib}.*(mF.u{ib}.*dsdx + ...
-        mF.v{ib}.*dsdy);
+%     conv_prop = mF.ro{ib}.*(mF.u{ib}.*dsdx + ...
+%         mF.v{ib}.*dsdy);
+    
+    conv_prop = drousdx + drovsdy;
 
     diss_prop = mF.diss_T{ib};
     irrev_prop = mF.irrev_gen{ib};

@@ -5,6 +5,8 @@ classdef DNS_case < handle
     properties
         casename;
         casepath;
+        casetype;
+        topology;
         runpath;
         runpaths;
         run;
@@ -53,6 +55,7 @@ classdef DNS_case < handle
             
             if nargin < 2 || isempty(run)
                 obj.runpath = obj.casepath;
+                obj.run = [];
             elseif length(run) == 1
                 obj.run = run;
                 obj.runpath = fullfile(obj.casepath,['run' num2str(obj.run)]);
@@ -67,7 +70,14 @@ classdef DNS_case < handle
             end
             disp(obj.casepath)
 
-            rcase = read_case(casename);
+            if exist(fullfile(obj.casepath,'body.txt'),'file')
+                obj.casetype = 'gpu';
+            else
+                obj.casetype = 'cpu';
+            end
+            fprintf('Case type: %s\n', obj.casetype);
+
+            rcase = read_case(casename, obj.casetype, obj.run);
             obj.NB = rcase.NB;
             obj.blk = rcase.blk;
             obj.next_block = rcase.next_block;
@@ -78,10 +88,29 @@ classdef DNS_case < handle
             obj.solver = rcase.solver;
             obj.blk.inlet_blocks{1} = rcase.inlet_blocks;
             obj.blk.z = linspace(0, obj.solver.span, obj.blk.nk{1});
-            
-            if obj.NB == 12
+            obj.blk.viewarea = [];
+            if obj.NB == 9
+                obj.topology = 1;
+                obj.blk.oblocks = [3 5 7 4];
+                obj.blk.oblocks_flip = [0 0 1 1];
+            elseif obj.NB == 12
+                obj.topology = 2;
                 obj.blk.oblocks = [4 6 9 5];
                 obj.blk.oblocks_flip = [0 0 1 1];
+                obj.blk.viewarea = [-0.6 2 -0.5 0.5];
+            else
+                obj.topology = 3;
+                obj.blk.oblocks = [1];
+                obj.blk.oblocks_flip = [0];
+                obj.blk.viewarea = [0 1 0 0.25];
+            end
+            
+            if ~isempty(obj.blk.viewarea)
+                obj.blk.aspect = [(obj.blk.viewarea(2)-obj.blk.viewarea(1)) ...
+                    (obj.blk.viewarea(4)-obj.blk.viewarea(3)) 1];
+            end
+
+            if obj.NB == 12
             end
 
             if isfile(fullfile(obj.runpath,'slice_time.txt'))
@@ -217,21 +246,25 @@ classdef DNS_case < handle
 
         end
 
-        function writeInputFiles(obj, nkproc)
-            if obj.NB == 12
-                topology = 2;
-            else
-                topology = 1;
-            end
+        function writeCase(obj, nkproc)
+            
             write_case(obj.casename, obj.blk, obj.next_block, obj.next_patch, ...
-                obj.corner, obj.bcs, obj.gas, obj.solver, topology, nkproc);
+                obj.corner, obj.bcs, obj.gas, obj.solver, obj.topology, nkproc);
         end
 
+
+
+
         function slice = readSingleKSlice(obj,numslice)
-            slicetime = readmatrix(fullfile(obj.runpath,'slice_time.txt'));
+            switch obj.casetype
+                case 'cpu'
+                    slicetime = readmatrix(fullfile(obj.runpath,'slice_time.txt'));
+                case 'gpu'
+                    slicetime = readmatrix(fullfile(obj.runpath,'kslice_time.txt'));
+            end
             slicenums = slicetime(end-obj.nSlices+1:end,1);
             slicenum = slicenums(numslice);
-            slice =kSlice(obj.runpath,slicenum,obj.blk,obj.gas);
+            slice =kSlice(obj.blk,obj.gas,obj.runpath,slicenum);
         end
 
         function slice = readSingleJSlice(obj,numslice)
@@ -241,42 +274,79 @@ classdef DNS_case < handle
             slice =jSlice(obj.runpath,slicenum,obj.blk,obj.gas);
         end
 
-        function readKSlices(obj, runs, numslices)
+        function readKSlices(obj, slicenums, runs)
             %READKSLICES Read in instantaneous k slices
             % Optional: numslices - only read last n slices if there are many
             
             exist("runs",'var')
             exist("numslices",'var')
-            slicetime = readmatrix(fullfile(obj.runpath,'slice_time.txt'));
-            slices = dir(fullfile(obj.runpath,'k_cuts','kcu2_1_*'));
+            obj.kSlices = kSlice.empty;
+            obj.nSlices = [];
+            switch obj.casetype
+                case 'cpu'
+                    slicetime = readmatrix(fullfile(obj.runpath,'slice_time.txt'));
+                    if strcmp(obj.casepath, obj.runpath)
+                        slices = dir(fullfile(obj.runpath,'kcu2_1_*'));
+                        ishere = true;
+                    else
+                        slices = dir(fullfile(obj.runpath,'k_cuts','kcu2_1_*'));
+                        ishere = false;
+                    end
+                case 'gpu'
+                    slicetime = readmatrix(fullfile(obj.runpath,'kslice_time.txt'));
+                    if strcmp(obj.casepath, obj.runpath)
+                        slices = dir(fullfile(obj.runpath,'kcut_1_*'));
+                        ishere = true;
+                    else
+                        slices = dir(fullfile(obj.runpath,'k_cuts','kcut_1_*'));
+                        ishere = false;
+                    end
+            end
             obj.nSlices = length(slices);
+            for i=1:length(slices)
+                inds(i) = str2num(slices(i).name(8:end));
+            end
+            [~,inds] = sort(inds);
+            slices = slices(inds);
             if nargin == 1
                 for i=1:obj.nSlices
                     fprintf('Reading slice %d/%d\n',[i obj.nSlices])
                     slicenum = str2num(slices(i).name(8:end));
-                    obj.kSlices(i) = kSlice(obj.runpath,slicenum,obj.blk,obj.gas);
+                    obj.kSlices(i) = kSlice(obj.blk,obj.gas,obj.runpath,slicenum,obj.casetype,ishere);
                     %slices(i).time = slicetime(i,2);
                 end
-            elseif exist("numslices",'var') == 1
-                for i=numslices
+            elseif exist("slicenums",'var')
+                n=0;
+                for i=slicenums
+                    n=n+1;
+                    fprintf('Reading slice %d/%d\n',[n length(slicenums)])
+                    slices(i)
                     slicenum = str2num(slices(i).name(8:end));
-                    obj.kSlices(i) = kSlice(obj.runpath,slicenum,obj.blk,obj.gas);
+                    obj.kSlices(i) = kSlice(obj.blk,obj.gas,obj.runpath,slicenum,obj.casetype,ishere);
                     %slices(i).time = slicetime(i,2);
                 end
-            elseif exist("runs",'var') == 1
+            elseif exist("runs",'var')
                 runs
-                obj.nSlices = 0
+                obj.nSlices = 0;
                 slicenums=[];
                 for nrun=runs
                     runpath = fullfile(obj.casepath,['run' num2str(nrun)]);
-                    slices = dir(fullfile(runpath,'k_cuts','kcu2_1_*'));
+                    switch obj.casetype
+                        case 'cpu'
+                            slicetime = readmatrix(fullfile(runpath,'slice_time.txt'));
+                            slices = dir(fullfile(runpath,'k_cuts','kcu2_1_*'));
+                        case 'gpu'
+                            slicetime = readmatrix(fullfile(runpath,'kslice_time.txt'));
+                            slices = dir(fullfile(runpath,'k_cuts','kcut_1_*'));
+                    end
                     obj.nSlices = obj.nSlices + length(slices);
                     read = 0;
                     for i=1:length(slices)
+                        fprintf('Run %d: Reading slice %d/%d\n',[nrun i obj.nSlices])
                         read = read+1;
-                        slicenum = str2num(slices(i).name(8:end));
+                        slicenum = str2num(slices(i).name(8:end))
                         slicenums(end+1) = slicenum;
-                        obj.kSlices(end+1) = kSlice(runpath,slicenum,obj.blk.blockdims,obj.gas);
+                        obj.kSlices(end+1) = kSlice(obj.blk,obj.gas,runpath,slicenum,obj.casetype,ishere);
                     end
                 end
                 [~,inds] = sort([obj.kSlices.nSlice]);
@@ -285,7 +355,7 @@ classdef DNS_case < handle
             end
         end
 
-        function readJSlices(obP    , runs, numslices)
+        function readJSlices(obj, runs, slicenums)
             %READJSLICES Read in instantaneous j slices
             % Optional: numslices - only read last n slices if there are many
             
@@ -293,15 +363,24 @@ classdef DNS_case < handle
             slices = dir(fullfile(obj.runpath,'j_cuts','jcu2_4_*'));
             %obj.nSlices = length(slices);
             obj.nSlices = length(slices);
+            for i=1:length(slices)
+                inds(i) = str2num(slices(i).name(8:end));
+            end
+            [~,inds] = sort(inds);
+            slices = slices(inds);
             if nargin == 1
                 for i=1:obj.nSlices
+                    fprintf('Reading slice %d/%d\n',[i obj.nSlices])
                     slicenum = str2num(slices(i).name(8:end));
                     obj.jSlices(i) = jSlice(obj.runpath,slicenum,obj.blk,obj.gas);
                     %slices(i).time = slicetime(i,2);
                 end
-            elseif exist("numslices",'var') == 1
-                for i=1:numslices
-                    slicenum = str2num(slices(i+obj.nSlices-numslices).name(8:end));
+            elseif exist("slicenums",'var') == 1
+                n=0;
+                for i=slicenums
+                    n=n+1;
+                    fprintf('Reading slice %d/%d\n',[n length(slicenums)])
+                    slicenum = str2num(slices(i+obj.nSlices-slicenums(i)).name(8:end));
                     obj.jSlices(i) = jSlice(obj.runpath,slicenum,obj.blk,obj.gas);
                     %slices(i).time = slicetime(i,2);
                 end
@@ -329,7 +408,7 @@ classdef DNS_case < handle
 
         function readInstFlow(obj)
             %READINSTFLOW Read in instantaneous 3D flow
-            obj.instFlow = volFlow(obj.runpath,obj.blk,obj.gas);
+            obj.instFlow = volFlow(obj.runpath,obj.blk,obj.gas,obj.casetype);
             
         end
 
@@ -348,25 +427,34 @@ classdef DNS_case < handle
             obj.meanFlow = meanSlice(obj.runpath,obj.blk,obj.gas);
         end
 
-        function readMeanFlows(obj)
+        function readMeanFlows(obj, calc_s_unst)
             %READMEANFLOWS Read in and average 2D mean flows for multiple
             %runs
+            if nargin < 2
+                calc_s_unst = false;
+            end
             regions = obj.getIntRegions;
             for ir = 1:length(obj.run)
                 fprintf('Reading meanSlice %d/%d (run %d)\n', [ir length(obj.run) obj.run(ir)])
                 mF = meanSlice(obj.runpaths{ir},obj.blk,obj.gas);
                 if ir == 1
                     obj.meanFlow = mF;
-                    [e_unst_s, ~, ~, ~, ~] = entropy_balance(mF, regions);
+                    if calc_s_unst
+                        [e_unst_s, ~, ~, ~, ~] = entropy_balance(mF, regions);
+                    end
                 else
                     obj.meanFlow.addSlice(mF)
                 end
                 if ir == length(obj.run)
-                    [e_unst_e, ~, ~, ~, ~] = entropy_balance(mF, regions);
+                    if calc_s_unst
+                        [e_unst_e, ~, ~, ~, ~] = entropy_balance(mF, regions);
+                    end
                 end
                 clear mF
             end
-            obj.e_unst = e_unst_e - e_unst_s;
+            if calc_s_unst
+                obj.e_unst = e_unst_e - e_unst_s;
+            end
         end
 
         function readInflowTurb(obj)
@@ -506,6 +594,7 @@ classdef DNS_case < handle
             if nargin < 4 || isempty(ax)
                 ax = gca;
             end
+
             %slice
             if isempty(slice)
                 disp('here')
@@ -515,11 +604,14 @@ classdef DNS_case < handle
             end
             hold on
             for i=1:slice.NB
-                pcolor(ax, obj.blk.x{i}, obj.blk.y{i}, q{i});
+                s = pcolor(ax, obj.blk.x{i}, obj.blk.y{i}, q{i});
             end
             shading('interp')
-            axis([-0.6 2 -0.5 0.5])
             axis equal
+            if ~isempty(obj.blk.viewarea)
+                pbaspect(obj.blk.aspect);
+                axis(obj.blk.viewarea);
+            end
             if string(prop) == "schlieren"
                 colormap(gray)
                 map = colormap;
@@ -528,7 +620,11 @@ classdef DNS_case < handle
                 if nargin < 6
                     label = '$|\nabla \rho|/\rho$';
                 end
+            elseif string(prop) == "vortZ"
+                colormap(redblue)
             end
+               
+            
             cb = colorbar;
             if nargin > 4 && ~isempty(lims)
                 caxis(lims)
@@ -541,6 +637,89 @@ classdef DNS_case < handle
             
             set(ax, 'FontSize', 12)
         end
+
+        function flipbook(obj,slices, prop, ax, lims, label)
+            if nargin < 4 || isempty(ax)
+                ax = gca;
+            end
+            if nargin < 5 || isempty(lims)
+                lims = [];
+                switch prop
+                    case 'M'
+                        lims = [0 1.6];
+                    case 'tau_w'
+                        lims = [0 800];
+                    case 'vortZ'
+                        lims = 1e5*[-0.7 0.7];
+                end
+            end
+            if nargin < 6 || isempty(label)
+                label = [];
+                switch prop
+                    case 'M'
+                        label = '$M$';
+                    case 'tau_w'
+                        label = '$\tau_w$';
+                    case 'vortZ'
+                        label = '$\omega_z$';
+                end
+            end
+            for i=1:length(slices)
+                switch class(slices(i))
+                    case 'kSlice'
+                        obj.kPlot(slices(i),prop,ax,lims,label)
+                    case 'jSlice'
+                        obj.jPlot(slices(i),prop,ax,lims,label)
+                end
+                title(sprintf('Slice %d/%d', i, length(slices)))
+                pause
+            end
+        end
+                
+
+        function kContour(obj,slice,prop,ax,levels,label,fmt,linew,falpha)
+            
+            if nargin < 4 || isempty(ax)
+                ax = gca;
+            end
+            if nargin < 7 || isempty(fmt)
+                fmt = 'k';
+            end
+            if nargin < 8 || isempty(linew)
+                linew = 0.2;
+            end
+            if nargin < 9 || isempty(falpha)
+                falpha = 1.0;
+            end
+            %slice
+            if isempty(slice)
+                disp('here')
+                q = obj.(prop);
+            else
+                q = slice.(prop);
+            end
+            hold on
+            for i=1:slice.NB
+                s = contour(ax, obj.blk.x{i}, obj.blk.y{i}, q{i}, levels, 'k', 'LineWidth', linew, 'EdgeAlpha', falpha);
+            end
+            shading('interp')
+            axis([-0.6 2 -0.5 0.5])
+            axis equal
+            if string(prop) == "schlieren"
+                if nargin < 6
+                    %label = '$|\nabla \rho|/\rho$';
+                end
+            end
+            if nargin > 5 || exist("label",'var')
+                label;
+                cb.Label.Interpreter = 'latex';
+                cb.Label.String = label;
+            end
+            
+            set(ax, 'FontSize', 12)
+        end
+
+        
 
         function BLkPlot(obj,slice,prop,ax,lims,label)
             if nargin < 4 || isempty(ax)
@@ -559,9 +738,9 @@ classdef DNS_case < handle
             shading('interp')
             
             axis equal
-            pbaspect([8 1.5 1])
+            pbaspect([5 2 1])
 
-            axis([0.15 0.95 0 0.15])
+            axis([0.4 0.9 0 0.2])
             cb = colorbar('southoutside');
             if nargin > 4 && ~isempty(lims)
                 caxis(lims)
@@ -569,7 +748,7 @@ classdef DNS_case < handle
             nargin
             if nargin > 5 && ~isempty(label)
                 label;
-                cb.Label.Interpreter = 'latex';
+                %cb.Label.Interpreter = 'latex';
                 cb.Label.String = label;
             end
 
@@ -634,6 +813,25 @@ classdef DNS_case < handle
             end
         end
 
+        function plot_blade(obj,fmt)
+            if nargin < 2
+                fmt = 'k';
+            end
+            xsurf = [];
+            ysurf = [];
+            for i=1:length(obj.blk.oblocks)
+                xtemp = obj.blk.x{obj.blk.oblocks(i)}(:,end);
+                ytemp = obj.blk.y{obj.blk.oblocks(i)}(:,end);
+                if obj.blk.oblocks_flip(i) == 1
+                    xtemp = flip(xtemp);
+                    ytemp = flip(ytemp);
+                end
+                xsurf = [xsurf xtemp'];
+                ysurf = [ysurf ytemp'];
+            end
+            plot(xsurf,ysurf,fmt)
+        end
+
         function plot_surf_prop(obj,slice,prop,ax,lims)
 
             if nargin < 4 || isempty(ax)
@@ -669,13 +867,26 @@ classdef DNS_case < handle
             
         end
 
-        function setTrip(obj, x, amp, scale)
-            obj.trip.amp = amp;
-            obj.trip.scale = scale;
+        function setTrip(obj)
+            mode = input('Trip mode:');
+            obj.trip.mode = mode;
+            x = input('x location:');
+            switch mode
+                case 1
+                    obj.trip.amp = input('trip_amp:');
+                    obj.trip.scale = input('trip_scale:');
+                case {2, 3}
+                    obj.trip.scale = input('trip_scale:');
+                case 4
+                    obj.trip.scale = input('ttrip_scale:');
+                    obj.trip.nbumps = input('nbumps:');
+            end
+
             [obj.trip.nb, obj.trip.i] = obj.x2point(x);
             obj.trip.x = obj.blk.x{obj.trip.nb}(obj.trip.i,end);
             obj.trip.y = obj.blk.y{obj.trip.nb}(obj.trip.i,end);
             obj.iTrip = true;
+
         end
 
         function [nb, ni] = x2point(obj, x)
@@ -717,6 +928,9 @@ classdef DNS_case < handle
         end
 
         function plotTripFactor(obj,ax)
+            if nargin < 2 || isempty(ax)
+                ax = gca;
+            end
             if ~obj.iTrip
                 disp('Must setup trip first')
             else
@@ -744,13 +958,22 @@ classdef DNS_case < handle
                 obj.trip.mode = str2num(fgetl(fid));
                 temp = fgetl(fid);
                 temp = str2num(temp);
-                if obj.trip.mode == 1
-                    obj.trip.amp = temp(1);
-                    obj.trip.scale = temp(2);
-                    xtmp = temp(3);
-                else
-                    obj.trip.scale = temp(1);
-                    xtmp = temp(2);
+                switch obj.trip.mode
+                    case 1
+                        obj.trip.amp = temp(1);
+                        obj.trip.scale = temp(2);
+                        xtmp = temp(3);
+                    case {2,3}
+                        obj.trip.scale = temp(1);
+                        xtmp = temp(2);
+                    case {4,5}
+                        obj.trip.scale = temp(1);
+                        xtmp = temp(2);
+                        if length(temp) < 4
+                            obj.trip.nbumps = str2num(fgetl(fid));
+                        else
+                            obj.trip.nbumps = temp(4);
+                        end
                 end
 
                 fclose(fid);
@@ -770,7 +993,17 @@ classdef DNS_case < handle
                 else
                     fid = fopen(fullfile(obj.casepath, 'trip.txt'), 'w');
                 end
-                fprintf(fid,'%20.16e %20.16e %20.16e %20.16e', obj.trip.amp, obj.trip.scale, obj.trip.x, obj.trip.y);
+                switch obj.trip.mode
+                    case 1
+                        fprintf(fid, '%d\n', obj.trip.mode);
+                        fprintf(fid,'%20.16e %20.16e %20.16e %20.16e\n', obj.trip.amp, obj.trip.scale, obj.trip.x, obj.trip.y);
+                    case {2, 3}
+                        fprintf(fid, '%d\n', obj.trip.mode);
+                        fprintf(fid,'%20.16e %20.16e %20.16e %20.16e\n', obj.trip.scale, obj.trip.x, obj.trip.y);
+                    case 4
+                        fprintf(fid, '%d\n', obj.trip.mode);
+                        fprintf(fid,'%20.16e %20.16e %20.16e %d\n', obj.trip.scale, obj.trip.x, obj.trip.y, obj.trip.nbumps);
+                end
                 fclose(fid);
             end
         end
@@ -1079,13 +1312,12 @@ classdef DNS_case < handle
 
         end
 
-        function update_input_files(obj)
-            if obj.NB == 12
-                topology = 2;
-            else
-                topology = 1;
-            end
-            write_input_files(obj.casename,obj.blk,obj.next_block,obj.next_patch,obj.corner,obj.bcs,obj.gas,obj.solver,topology);
+        function writeInputFiles(obj)
+            write_input_files(obj.casename,obj.blk,obj.next_block,obj.next_patch,obj.corner,obj.bcs,obj.gas,obj.solver,obj.topology);
+        end
+
+        function writeGridFiles(obj)
+            write_grid(obj.casename, obj.blk)
         end
 
         function get_cell_areas(obj)
@@ -1351,7 +1583,7 @@ classdef DNS_case < handle
 
         function interpInstFlow(obj, newcase)
             for ib = 1:obj.NB
-                oldFlow = volFlowBlock(obj.runpath, ib, obj.blk, obj.gas);
+                oldFlow = volFlowBlock(obj.runpath, ib, obj.blk, obj.gas, obj.casetype);
                 newFlow = oldFlow.interpOntoNewGrid(newcase, ib);
                 newFlow.writeFlow(newcase.casepath)
                 clear oldFlow newFlow
@@ -1398,9 +1630,142 @@ classdef DNS_case < handle
                 newProbes{ip} = dnsProbe([],ip,obj.nSkip,blkData,obj.gas);
             end
         end
-        
 
-        
 
+        function writeMovie(obj, slices, prop, lims, label, area)
+            if nargin < 6 || isempty(area)
+                area = obj.blk.viewarea;
+                aspect = obj.blk.aspect;
+            else
+                aspect = [(area(2)-area(1))...
+                    (area(4)-area(3)) 1];
+            end
+            if nargin < 4 || isempty(lims)
+                switch prop
+                    case 'M'
+                        lims = [0 1.6];
+                    case 'tau_w'
+                        lims = [0 800];
+                    case 'vortZ'
+                        lims = 1e5*[-0.7 0.7];
+                end
+            end
+            if nargin < 5 || isempty(label)
+                switch prop
+                    case 'M'
+                        label = 'M';
+                    case 'tau_w'
+                        label = '\tau_w';
+                    case 'vortZ'
+                        label = '\omega_z';
+                end
+            end
+
+            p = gcp('nocreate');
+%             if isempty(p)
+%                 parpool(16);
+%             end
+            switch class (slices(1))
+                case 'kSlice'
+                    var = ['k_' prop];
+                case 'jSlice'
+                    var = ['j_' prop];
+            end
+            imgfolder = fullfile(obj.runpath,'animation_images',var);
+            %%
+            if ~exist(imgfolder, 'dir')
+                   mkdir(imgfolder);
+            end
+            
+            %%
+            outfolder = obj.runpath;
+            for i=1:length(slices)
+                fprintf('Plotting slice %d/%d\n',i,length(slices))
+                if ~exist(fullfile(imgfolder,sprintf('img_%03d.png',slices(i).nSlice)),'file')
+                    switch class(slices(i))
+                        case 'kSlice'
+                            slice2kPlot(slices(i), obj.blk, prop, fullfile(imgfolder,sprintf('img_%03d.png',slices(i).nSlice)), lims, label, area, aspect);
+                        case 'jSlice'
+		                    slice2jPlot(slices(i), prop, fullfile(imgfolder, sprintf('img_%03d.png',slices(i).nSlice)), lims, label);
+                    end
+                end
+            end
+
+            system(['ffmpeg -framerate 5 -pattern_type glob -i "' imgfolder '/*.png" '...
+                '-c:v libx264 -profile:v high -pix_fmt yuv420p -vf ' ...
+                '"pad=ceil(iw/2)*2:ceil(ih/2)*2" "' ...
+                 outfolder '/run' num2str(obj.run(end)) '_' var '.mp4"']);
+
+
+
+        end
+
+        function dim = generateInflowTurb(obj, write)
+            
+            if nargin < 2
+                write=true;
+            end
+
+            L = 1.0;            % Lengthscale of largest eddies
+            M = 10000;          % Number of Fourier modes
+            Tu = 0.005;         % Turbulence intensity
+
+            [xb,yb,zb,dx] = writeTurbGrid(obj.blk.inlet_blocks{1}, obj.solver.span, obj.casepath);
+            [~, lMax, minL, ~] = gridSpac(xb,yb,zb);
+            [ni,nj,nk] = size(xb);
+            dim = [ni,nj,nk];
+
+            rgas = obj.gas.cp*(obj.gas.gam-1)/obj.gas.gam;
+            Tin = obj.bcs.Toin - obj.bcs.vin^2/(2*obj.gas.cp);
+            ronow = (obj.bcs.Poin/(rgas*Tin)) * (Tin/obj.bcs.Toin)^(obj.gas.gam/(obj.gas.gam-1));
+            nunow = 1/ronow*obj.gas.mu_ref*((obj.gas.mu_tref+obj.gas.mu_cref)/(Tin+obj.gas.mu_cref))*(Tin/obj.gas.mu_tref)^1.5;
+
+            if write
+                dir = pwd;
+                cd(fullfile(obj.casepath,'turb-gen'))
+                f = fopen('turbin_params_grid.txt','w');
+                fprintf(f,'%s\n','turb-grid.dat');
+                fprintf(f,'%d, %d, %d\n',[ni nj nk]);
+                fprintf(f,'%0.6e\n', lMax);
+                fprintf(f,'%e\n', minL);
+                fprintf(f,'%d\n',M);
+                fprintf(f,'%e\n', nunow);
+                fprintf(f,'%f, %f\n', [Tu obj.bcs.vin]);
+                fprintf(f,'%f, %e\n', [-1 L]);
+                fprintf(f,'%s\n', 'inflow_turb_gridTurb.dat');
+                fclose(f)
+                system('turbInGrid > out &')
+                cd(dir)
+            end
+            
+            fprintf('Set ilength to %d\n',ni);
+            fprintf('Set lturb to: %9.7f\n', dx);
+
+        end
+
+        function [u,v,w] = conditionInflowTurb(obj,dim)
+            gridPath = py.str(fullfile(obj.casepath,'turb-gen','turb-grid.dat'));
+            namePath = py.str(fullfile(obj.casepath,'turb-gen','inflow_turb_gridTurb.dat'));
+            DIM = py.tuple(int32(dim));
+            turb_postproc = py.importlib.import_module('turb_postproc');
+            U = turb_postproc.conditionAxSlc(namePath,gridPath,DIM,true,false,false);
+            u = U(1); v = U(2); w = U(3);
+            namePath = py.str(fullfile(obj.casepath,'turb-gen','inflow_turb.dat'));
+            turb_postproc.write3DNSorder(namePath,u,v,w)
+        end
+
+        function write_HYDRA_mesh(obj)
+            path = fullfile(obj.casepath,[obj.casename '_HYDRA.xyz']);
+            nk = 6;
+            span = (nk-1)*obj.solver.span/(obj.solver.nk-1);
+            write_plot3d_extruded(obj.blk, path, nk, span);
+        end
+
+        function write_2d_plot3d_mesh(obj)
+            path = fullfile(obj.casepath,[obj.casename '_2d.xyz']);
+            nk = 1;
+            span = (nk-1)*obj.solver.span/(obj.solver.nk-1);
+            write_plot3d_2d(obj.blk, path);
+        end
     end
 end

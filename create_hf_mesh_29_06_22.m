@@ -1,9 +1,9 @@
 clear
 close all
-proffile = '../isolated_aerofoils/r150_cwl_90/r150_aerofoil/r150_aerofoil.txt';
+proffile = '../isolated_aerofoils/r150_cwl_90/r150_aerofoil.txt';
 
 [xprof,yprof,pitch,stag] = read_profile(proffile,true);
-msmooths=500;
+msmooths=50;
 npp=6;
 pitch=2;
 bound_angle = 5.0;
@@ -20,7 +20,7 @@ NB = length(blk);
 npp = 24; % points in i,j direction for each block are set to a multiple of npp- this ensures load balancing when running on many cores
 refine_fac = 4.0; % the grid dimensions are scaled by this number in both directions
 ywall = 0.0006; % the final near wall cell height
-msmooths = 100; % number of iterations for the poisson solver
+msmooths = 10; % number of iterations for the poisson solver
 
 blk=mesh_refinement(blk,refine_fac,npp);
 
@@ -37,7 +37,7 @@ int_blk_dims
 npp = 56;
 refine_fac = 8.0;
 ywall = 0.000075;
-msmooths = 10;
+msmooths = 1;
 nkprocs = 3;
 
 blk=mesh_refinement(blk,refine_fac,npp);
