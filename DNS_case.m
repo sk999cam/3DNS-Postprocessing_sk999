@@ -102,7 +102,8 @@ classdef DNS_case < handle
                 obj.topology = 3;
                 obj.blk.oblocks = [1];
                 obj.blk.oblocks_flip = [0];
-                obj.blk.viewarea = [0 1 0 0.25];
+                obj.blk.viewarea = [0 max(obj.blk.x{1},[],'all') ...
+                    min(obj.blk.y{1},[],'all') max(obj.blk.y{1},[],'all')];
             end
             
             if ~isempty(obj.blk.viewarea)
@@ -635,7 +636,7 @@ classdef DNS_case < handle
                 cb.Label.String = label;
             end
             
-            set(ax, 'FontSize', 12)
+            %set(ax, 'FontSize', 12)
         end
 
         function flipbook(obj,slices, prop, ax, lims, label)
@@ -1313,7 +1314,8 @@ classdef DNS_case < handle
         end
 
         function writeInputFiles(obj)
-            write_input_files(obj.casename,obj.blk,obj.next_block,obj.next_patch,obj.corner,obj.bcs,obj.gas,obj.solver,obj.topology);
+            write_input_files(obj.casename,obj.blk,obj.next_block,obj.next_patch,obj.corner, ...
+                obj.bcs,obj.gas,obj.solver,'topology',obj.topology,'casetype',obj.casetype);
         end
 
         function writeGridFiles(obj)
@@ -1761,11 +1763,69 @@ classdef DNS_case < handle
             write_plot3d_extruded(obj.blk, path, nk, span);
         end
 
+        function blkNodes = write_Fluent_mesh_2d(obj, path)
+            if nargin < 2
+                path = fullfile(obj.casepath,[obj.casename '_Fluent_2d.msh']);
+                %npath = fullfile(obj.casepath,[obj.casename '_Fluent_nodes.mat']);
+            end
+
+            blkNodes = writeFluentMesh(path, obj.blk, obj.next_block, obj.next_patch, true);
+        end
+
+        function blkNodes = write_Fluent_mesh(obj, fname)
+            if nargin < 2
+                path = fullfile(obj.casepath,[obj.casename '_Fluent.msh']);
+                %npath = fullfile(obj.casepath,[obj.casename '_Fluent_nodes.mat']);
+            else
+                path = fullfile(obj.casepath,[fname '.msh']);
+            end
+
+            nk = 6;
+            span = (nk-1)*obj.solver.span/(obj.solver.nk-1);
+            blkNodes = writeFluentMeshExtruded(path, obj.blk, obj.next_block, obj.next_patch, nk, span, true);
+        end
+
         function write_2d_plot3d_mesh(obj)
             path = fullfile(obj.casepath,[obj.casename '_2d.xyz']);
-            nk = 1;
-            span = (nk-1)*obj.solver.span/(obj.solver.nk-1);
             write_plot3d_2d(obj.blk, path);
+        end
+
+        function [flow vin ps] = init_shock_flow(obj, Min, xShock, Lshock)
+            gam = obj.gas.gam;
+            cp = obj.gas.cp;
+            rgas = cp*(gam-1)/gam;
+            flow = volFlow;
+            flow.NB = 1;
+            flow.gam = obj.gas.gam;
+            flow.cp = obj.gas.cp;
+            flow.blk = obj.blk;
+            flow.gas = obj.gas;
+            flow.nk = obj.solver.nk;
+            flow.flowpath = obj.casepath;
+            flow.casetype = 'gpu';
+
+            fM = 1+0.5*(gam-1)*Min^2;
+            pin = obj.bcs.Poin*fM^(-gam/(gam-1));
+            tin = obj.bcs.Toin/fM;
+            roin = pin/(rgas*tin);
+            vin = Min*sqrt(gam*rgas*tin);
+            Etin = pin/(gam-1) + 0.5*roin*vin^2;
+
+            Ms = sqrt(fM/(gam*Min^2 - 0.5*(gam-1)));
+            ps = pin*(1+2*gam*(Min^2-1)/(gam+1));
+            ros = 0.5*roin*(gam+1)*Min^2/fM;
+            Ts = ps/(ros*rgas);
+            vs = Ms*sqrt(gam*rgas*Ts);
+            Ets = ps/(gam-1) + 0.5*ros*vs^2;
+
+            [ni, nj] = size(obj.blk.x{1});
+            nk = obj.solver.nk;
+            flow.v{1} = zeros(ni, nj, nk);
+            flow.w{1} = flow.v{1};
+            shfn = tanh((flow.blk.x{1}-xShock)/Lshock);
+            flow.u{1} = 0.5*((vin + vs) - (vin-vs)*shfn);
+            flow.ro{1} = 0.5*((roin + ros) - (roin-ros)*shfn);
+            flow.Et{1} = 0.5*((Etin+Ets) - (Etin-Ets)*shfn);
         end
     end
 end

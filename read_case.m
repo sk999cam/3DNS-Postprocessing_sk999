@@ -308,6 +308,7 @@ function rcase = read_case(casename, type, run)
             bcs.aturb = temp(7);
             bcs.nturb = temp(8);
             bcs.iradprof = temp(9);
+            bcs.g_z = temp(10);
         
             % Gas props
             temp = str2num(char(split(fgetl(f))));

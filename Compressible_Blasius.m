@@ -5,21 +5,38 @@ format long;
 tic
 [eta, y, U, T] = similarity();
 
+T=T;
+
+gam = 1.4;
+cp = 1005;
+rgas = cp*(gam-1)/gam;
+
+Minf = 1.2;
+Tinf = 300;
+Ud = Minf*sqrt(gam*rgas*Tinf)*U;
+Td = Tinf*T;
+
+M = Ud./sqrt(gam*rgas*Td);
+M2 = Minf.*U./sqrt(T);
+T0 = Td./T_T0(M, gam);
 
 figure(1)
 hold on
-plot(U,y)
+%plot(Ud,y)
+plot(M,y)
+plot(M2,y);
 xlabel("U")
 ylabel("y")
 figure(2)
 hold on
-plot(T,y)
+plot(Td,y)
+plot(T0,y)
 xlabel("T")
 ylabel("y")
 result = toc;
 
 function [eta, xaxis, y2, y4] = similarity()
-    Minf = 0.84;       % Mach Number
+    Minf = 1.2;       % Mach Number
     Gamma = 1.4;    % Gamma
     Pr = 0.72;      % Prantdl Number
     Tinf = 300;

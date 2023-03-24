@@ -32,6 +32,8 @@ classdef flowSlice < handle
     properties (Dependent = true)
         T;             % Temperature
         p;             % p stat
+        mut;            % Turbulent viscosity
+        StR;            % Strain rate magnitude
         M;              % Mach No
         s;              % Entropy ( cp*log(T/300) - R*log(p/1e5) )
         vel;            % Velocity
@@ -61,6 +63,10 @@ classdef flowSlice < handle
             value = obj.get_p;
         end
 
+        function obj = set.p(obj, value)
+            obj.set_p(value);
+        end
+
         function value = get_p(obj)
             value = cell(1,obj.NB);
             for nb =1:obj.NB
@@ -71,6 +77,51 @@ classdef flowSlice < handle
         function value = get.T(obj)
             value = obj.get_T;
         end
+
+        function obj = set.T(obj, value)
+            obj.set_T(value);
+        end
+
+        function value = get.mut(obj)
+            value = obj.get_mut;
+        end
+
+        function obj = set.mut(obj, value)
+            obj.set_mut(value);
+        end
+
+        function value = get.StR(obj)
+            value = obj.get_StR;
+        end
+
+        function obj = set.StR(obj, value)
+            obj.set_StR(value);
+        end
+
+        function set_p(obj,value)
+        end
+
+        function set_T(obj,value)
+        end
+
+        function set_mut(obj,value)
+        end
+
+        function set_StR(obj,value)
+        end
+
+        function value = get_StR(obj)
+            value = cell(1,obj.NB);
+            for nb =1:obj.NB
+                value{nb} = strain_rate_magnitude(obj.blk.x{nb}, obj.blk.y{nb}, obj.u{nb}, obj.v{nb});
+            end
+        end
+
+        function value = get_mut(obj)
+            disp('Overload get_mut in relevant subclass')
+            value = [];
+        end
+
 
         function value = get_T(obj)
             value = cell(1,obj.NB);

@@ -61,6 +61,9 @@ classdef aveSlice < kCut
             if nargin < 3
                 is = 40:100;
             end
+            if nargin < 2
+                inlet_blocks = obj.blk.inlet_blocks{1};
+            end
             Mnow = obj.M;
             Unow = obj.vel;
             ronow = obj.ro;

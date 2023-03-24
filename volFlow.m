@@ -25,6 +25,8 @@ classdef volFlow
         span;
         z;
         Q;              % Q Criterion
+        casetype;
+        flowpath;
     end
 
     properties (Dependent = true)
@@ -49,6 +51,7 @@ classdef volFlow
                 obj.gam = gas.gam;
                 obj.cp = gas.cp;
                 obj.rgas = obj.cp*(1-1/obj.gam);
+                obj.casetype = casetype;
     
                 obj.NB = size(blockdims,1);
                 for nb = 1:obj.NB
@@ -394,39 +397,58 @@ classdef volFlow
             rwnow = ronow.*obj.w{nb};
             Etnow = obj.Et{nb};
 
-            fpos = 0;
-            for i=1:size(obj.ro{nb},1)
-                for j=1:size(obj.ro{nb},2)
-                    for k=1:size(obj.ro{nb},3)
-                        fpos = fpos+1;
-                        B(1, fpos) = i;
-                        B(2, fpos) = j;
-                        B(3,fpos) = k;
-
-                        A(1,fpos) = ronow(i,j,k);
-                        A(2,fpos) = runow(i,j,k);
-                        A(3,fpos) = rvnow(i,j,k);
-                        A(4,fpos) = rwnow(i,j,k);
-                        A(5,fpos) = Etnow(i,j,k);
+            switch obj.casetype
+                case 'cpu'
+                    fpos = 0;
+                    for i=1:size(obj.ro{nb},1)
+                        for j=1:size(obj.ro{nb},2)
+                            for k=1:size(obj.ro{nb},3)
+                                fpos = fpos+1;
+                                B(1, fpos) = i;
+                                B(2, fpos) = j;
+                                B(3,fpos) = k;
+        
+                                A(1,fpos) = ronow(i,j,k);
+                                A(2,fpos) = runow(i,j,k);
+                                A(3,fpos) = rvnow(i,j,k);
+                                A(4,fpos) = rwnow(i,j,k);
+                                A(5,fpos) = Etnow(i,j,k);
+                            end
+                        end
                     end
-                end
-            end
+        
+                    flopath = fullfile(path,  ['flo2_' num2str(nb)]);
+                    flofile = fopen(flopath,'w');
+                    nodfile = fopen(fullfile(path, ['nod2_' num2str(nb)]),'w');
+                    %viscpath = fullfile(casedir,  ['visc_' num2str(nb)]);
+                    %viscfile = fopen(viscpath,'r');
+        
+                    fwrite(flofile,A,'float64');
+                    fwrite(nodfile,B,'uint32');
+        
+            
+                    fclose(flofile);
+                    fclose(nodfile);
+                case 'gpu'
 
-            flopath = fullfile(path,  ['flo2_' num2str(nb)]);
-            flofile = fopen(flopath,'w');
-            nodfile = fopen(fullfile(path, ['nod2_' num2str(nb)]),'w');
-            %viscpath = fullfile(casedir,  ['visc_' num2str(nb)]);
-            %viscfile = fopen(viscpath,'r');
+                            A(:,:,:,1) = ronow;
+                            A(:,:,:,2) = runow;
+                            A(:,:,:,3) = rvnow;
+                            A(:,:,:,4) = rwnow;
+                            A(:,:,:,5) = Etnow;
+                            A = permute(A,[4 1 2 3]);
+                            
 
-            fwrite(flofile,A,'float64');
-            fwrite(nodfile,B,'uint32');
-
-    
-            fclose(flofile);
-            fclose(nodfile);
+                            fid = fopen(fullfile(path, ['flow_' num2str(nb)]),'w');
+                            fwrite(fid,A,'float64');
+                            fclose(fid)
+                    end
         end
 
         function writeFlow(obj, path)
+            if nargin < 2
+                path = obj.flowpath;
+            end
             for nb = 1:obj.NB
                 fprintf('Writing flow in block %d/%d\n',[nb,obj.NB])
                 obj.writeFlowBlock(path, nb);

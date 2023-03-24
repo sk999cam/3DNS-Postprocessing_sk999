@@ -264,10 +264,13 @@ classdef meanSlice < aveSlice
             tot_time = obj.meanTime + newSlice.meanTime;
 
             for ip = 1:length(props2add)
+                tmp = {};
                 for ib = 1:obj.NB
-                    obj.(props2add{ip}){ib} = (obj.(props2add{ip}){ib}*obj.meanTime + ...
-                        newSlice.(props2add{ip}){ib}*newSlice.meanTime)/tot_time;
+                    tmp{ib} = (obj.(props2add{ip}){ib}*obj.meanTime + ...
+                newSlice.(props2add{ip}){ib}*newSlice.meanTime)/tot_time;
                 end
+                obj.(props2add{ip}) = tmp;
+                
             end
             obj.meanTime = tot_time;
         end
@@ -399,6 +402,14 @@ classdef meanSlice < aveSlice
 
         function value = get_T(obj)
             value = obj.Tbar;
+        end
+
+        function obj.set_p(obj,value)
+            obj.pbar = value;
+        end
+
+        function obj.set_T(obj,value)
+            obj.Tbar = value;
         end
 
 

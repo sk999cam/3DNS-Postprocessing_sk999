@@ -1,5 +1,5 @@
 function err = write_plot3d_2d(blk,filename)
-    NB = length(blk);
+    NB = length(blk.x);
     blkdims = zeros(2,NB);
     for i=1:NB
         blkdims(:,i) = size(blk.x{i})';
