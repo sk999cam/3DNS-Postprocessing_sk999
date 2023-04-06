@@ -287,6 +287,8 @@ function rcase = read_case(casename, type, run)
                 temp = str2num(char(split(fgetl(f))));
                 block{nbg} = temp;
             end
+
+            blk.block = block;
             
         
             temp = str2num(char(split(fgetl(f))));
@@ -329,6 +331,10 @@ function rcase = read_case(casename, type, run)
             solver.irestart = temp(1);
             solver.istats = temp(2);
             solver.istability = 0;
+
+            temp = str2num(char(split(fgetl(f))));
+            solver.ilam = temp(1);
+            bcs.theta = temp(2);
         
 %             temp = str2num(char(split(fgetl(f))));
 %             n_in_blks = str2num(fgetl(f));

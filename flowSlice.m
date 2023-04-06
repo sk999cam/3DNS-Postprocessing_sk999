@@ -40,6 +40,7 @@ classdef flowSlice < handle
         mu;             % Viscosity
         nu;             % Kinematic viscosity
         p0;
+        T0;
         schlieren;      % |grad(ro)|/ro
         cellSize;
         S_an_mag;   % Magnitude of Anisotripic part of strain rate tensor
@@ -143,6 +144,14 @@ classdef flowSlice < handle
             Mnow = obj.M;
             for nb = 1:obj.NB
                 value{nb} = pnow{nb}.*(1+0.5*(obj.gas.gam-1)*Mnow{nb}.^2).^(obj.gas.gam/(obj.gas.gam-1));
+            end
+        end
+
+        function value = get.T0(obj)
+            tnow = obj.T;
+            Mnow = obj.M;
+            for nb = 1:obj.NB
+                value{nb} = tnow{nb}.*(1+0.5*(obj.gas.gam-1)*Mnow{nb}.^2);
             end
         end
 

@@ -81,7 +81,7 @@ if ismember(casetype, {'gpu', 'all'})
        jp = (jp_next_block==0)*jp_next_patch;
        
        
-       fprintf(fidin,'%d %d %nid %d\n', [im ip jm jp]);
+       fprintf(fidin,'%d %d %d %d\n', [im ip jm jp]);
        
        if(im==0)
        fprintf(fidin,'%d %d\n', [im_next_block im_next_patch]);
@@ -150,6 +150,9 @@ if ismember(casetype, {'gpu', 'all'})
         
         % restart, statistics
         fprintf(fidin,'%d %d\n', [solver.irestart solver.istats]);
+
+        % inlet BL, theta
+        fprintf(fidin,'%d %d\n', [solver.ilam bcs.theta]);
     
     fclose(fidin);
 end

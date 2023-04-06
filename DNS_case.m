@@ -282,56 +282,43 @@ classdef DNS_case < handle
             exist("runs",'var')
             exist("numslices",'var')
             obj.kSlices = kSlice.empty;
-            obj.nSlices = [];
-            switch obj.casetype
-                case 'cpu'
-                    slicetime = readmatrix(fullfile(obj.runpath,'slice_time.txt'));
-                    if strcmp(obj.casepath, obj.runpath)
+            obj.nSlices = 0;
+            if nargin < 3 || isempty(runs)
+                runs = obj.run;
+            end
+            paths2read={};
+            slicenums2read=[];
+            time2read = [];
+            if isempty(runs)
+                ishere = true;
+                switch obj.casetype
+                    case 'cpu'
+                        slicetime = readmatrix(fullfile(obj.runpath,'slice_time.txt'));
                         slices = dir(fullfile(obj.runpath,'kcu2_1_*'));
-                        ishere = true;
-                    else
-                        slices = dir(fullfile(obj.runpath,'k_cuts','kcu2_1_*'));
-                        ishere = false;
-                    end
-                case 'gpu'
-                    slicetime = readmatrix(fullfile(obj.runpath,'kslice_time.txt'));
-                    if strcmp(obj.casepath, obj.runpath)
+                    case 'gpu'
+                        slicetime = readmatrix(fullfile(obj.runpath,'kslice_time.txt'));
                         slices = dir(fullfile(obj.runpath,'kcut_1_*'));
-                        ishere = true;
-                    else
-                        slices = dir(fullfile(obj.runpath,'k_cuts','kcut_1_*'));
-                        ishere = false;
+                end
+                for i=1:length(slices)
+                        inds(i) = str2num(slices(i).name(8:end));
+                end
+                [~,inds] = sort(inds);
+                slices = slices(inds);
+                for i=1:length(slices)
+                    slicenum = str2num(slices(i).name(8:end));
+                    slicenums2read(end+1) = slicenum;
+                    paths2read{i} = obj.runpath;
+                    for j=1:size(slicetime,1)
+                        if slicetime(j,1) == slicenum
+                            time2read(end+1) = slicetime(j,2);
+                        end
                     end
-            end
-            obj.nSlices = length(slices);
-            for i=1:length(slices)
-                inds(i) = str2num(slices(i).name(8:end));
-            end
-            [~,inds] = sort(inds);
-            slices = slices(inds);
-            if nargin == 1
-                for i=1:obj.nSlices
-                    fprintf('Reading slice %d/%d\n',[i obj.nSlices])
-                    slicenum = str2num(slices(i).name(8:end));
-                    obj.kSlices(i) = kSlice(obj.blk,obj.gas,obj.runpath,slicenum,obj.casetype,ishere);
-                    %slices(i).time = slicetime(i,2);
                 end
-            elseif exist("slicenums",'var')
-                n=0;
-                for i=slicenums
-                    n=n+1;
-                    fprintf('Reading slice %d/%d\n',[n length(slicenums)])
-                    slices(i)
-                    slicenum = str2num(slices(i).name(8:end));
-                    obj.kSlices(i) = kSlice(obj.blk,obj.gas,obj.runpath,slicenum,obj.casetype,ishere);
-                    %slices(i).time = slicetime(i,2);
-                end
-            elseif exist("runs",'var')
-                runs
-                obj.nSlices = 0;
-                slicenums=[];
-                for nrun=runs
-                    runpath = fullfile(obj.casepath,['run' num2str(nrun)]);
+
+            else
+                ishere=false;
+                for run=runs
+                    runpath = fullfile(obj.casepath,['run' num2str(run)]);
                     switch obj.casetype
                         case 'cpu'
                             slicetime = readmatrix(fullfile(runpath,'slice_time.txt'));
@@ -340,20 +327,46 @@ classdef DNS_case < handle
                             slicetime = readmatrix(fullfile(runpath,'kslice_time.txt'));
                             slices = dir(fullfile(runpath,'k_cuts','kcut_1_*'));
                     end
-                    obj.nSlices = obj.nSlices + length(slices);
-                    read = 0;
+                    
+                    %obj.nSlices = obj.nSlices + length(slices);
                     for i=1:length(slices)
-                        fprintf('Run %d: Reading slice %d/%d\n',[nrun i obj.nSlices])
-                        read = read+1;
-                        slicenum = str2num(slices(i).name(8:end))
-                        slicenums(end+1) = slicenum;
-                        obj.kSlices(end+1) = kSlice(obj.blk,obj.gas,runpath,slicenum,obj.casetype,ishere);
+                        inds(i) = str2num(slices(i).name(8:end));
+                    end
+                    [~,inds] = sort(inds);
+                    slices = slices(inds);
+                    for i=1:length(slices)
+                        paths2read{end+1} = runpath;
+                        slicenum = str2num(slices(i).name(8:end));
+                        slicenums2read(end+1) = slicenum;
+                        for j=1:size(slicetime,1)
+                            if slicetime(j,1) == slicenum
+                                time2read(end+1) = slicetime(j,2);
+                            end
+                        end
                     end
                 end
-                [~,inds] = sort([obj.kSlices.nSlice]);
-                obj.kSlices = obj.kSlices(inds);
-
             end
+
+            if exist("slicenums",'var')
+                if length(slicenums) == 1
+                    slicenums2read = slicenums2read(end-slicenums+1:end);
+                    paths2read = paths2read{end-slicenums+1:end};
+                    time2read = time2read(end-slicenums+1:end);
+                else
+                    slicenums2read = slicenums2read(slicenums);
+                    paths2read = paths2read{slicenums};
+                    time2read = time2read(slicenums);
+                end
+            end
+
+            obj.nSlices = length(slicenums2read);
+
+            for i=1:obj.nSlices
+                fprintf('Reading slice %d/%d\n',[i obj.nSlices])
+                obj.kSlices(i) = kSlice(obj.blk,obj.gas,paths2read{i},slicenums2read(i),time2read(i),obj.casetype,ishere);
+                %slices(i).time = slicetime(i,2);
+            end
+            
         end
 
         function readJSlices(obj, runs, slicenums)
@@ -623,6 +636,8 @@ classdef DNS_case < handle
                 end
             elseif string(prop) == "vortZ"
                 colormap(redblue)
+            elseif ismember(string(prop),["v","w"])
+                colormap(redblue)
             end
                
             
@@ -637,6 +652,22 @@ classdef DNS_case < handle
             end
             
             %set(ax, 'FontSize', 12)
+        end
+
+        function p = inletProf(obj,slice,prop,ax)
+            if nargin < 4 || isempty(ax)
+                ax = gca;
+            end
+            propnow = [];
+            ynow = [];
+            for nb = obj.blk.inlet_blocks{1}
+                ynow = [ynow; obj.blk.y{nb}(1,:)];
+                propnow = [propnow; slice.(prop){nb}(1,:)];
+            end
+            [ynow, inds] = unique(ynow);
+            propnow = propnow(inds);
+            p = plot(ax,propnow,ynow);
+
         end
 
         function flipbook(obj,slices, prop, ax, lims, label)
@@ -666,6 +697,7 @@ classdef DNS_case < handle
                 end
             end
             for i=1:length(slices)
+                cla(ax);
                 switch class(slices(i))
                     case 'kSlice'
                         obj.kPlot(slices(i),prop,ax,lims,label)
@@ -1650,6 +1682,8 @@ classdef DNS_case < handle
                         lims = [0 800];
                     case 'vortZ'
                         lims = 1e5*[-0.7 0.7];
+                    case 'T'
+                        lims = [50 300];
                 end
             end
             if nargin < 5 || isempty(label)
@@ -1660,6 +1694,8 @@ classdef DNS_case < handle
                         label = '\tau_w';
                     case 'vortZ'
                         label = '\omega_z';
+                    case 'T'
+                        label = ('T (K)');
                 end
             end
 
@@ -1692,11 +1728,18 @@ classdef DNS_case < handle
                     end
                 end
             end
-
-            system(['ffmpeg -framerate 5 -pattern_type glob -i "' imgfolder '/*.png" '...
-                '-c:v libx264 -profile:v high -pix_fmt yuv420p -vf ' ...
-                '"pad=ceil(iw/2)*2:ceil(ih/2)*2" "' ...
-                 outfolder '/run' num2str(obj.run(end)) '_' var '.mp4"']);
+            
+            if strcmp(obj.casepath, obj.runpath)
+                system(['ffmpeg -framerate 5 -pattern_type glob -i "' imgfolder '/*.png" '...
+                    '-c:v libx264 -profile:v high -pix_fmt yuv420p -vf ' ...
+                    '"pad=ceil(iw/2)*2:ceil(ih/2)*2" "' ...
+                     outfolder '/' var '.mp4"']);
+            else
+                system(['ffmpeg -framerate 5 -pattern_type glob -i "' imgfolder '/*.png" '...
+                    '-c:v libx264 -profile:v high -pix_fmt yuv420p -vf ' ...
+                    '"pad=ceil(iw/2)*2:ceil(ih/2)*2" "' ...
+                     outfolder '/run' num2str(obj.run(end)) '_' var '.mp4"']);
+            end
 
 
 
@@ -1790,7 +1833,7 @@ classdef DNS_case < handle
             write_plot3d_2d(obj.blk, path);
         end
 
-        function [flow vin ps] = init_shock_flow(obj, Min, xShock, Lshock)
+        function [flow vin ps] = init_shock_flow(obj, Min, xShock, Lshock, theta_in)
             gam = obj.gas.gam;
             cp = obj.gas.cp;
             rgas = cp*(gam-1)/gam;
@@ -1803,7 +1846,9 @@ classdef DNS_case < handle
             flow.nk = obj.solver.nk;
             flow.flowpath = obj.casepath;
             flow.casetype = 'gpu';
+            [ni, nj] = size(obj.blk.x{1});
 
+            % Pre-shock conditions
             fM = 1+0.5*(gam-1)*Min^2;
             pin = obj.bcs.Poin*fM^(-gam/(gam-1));
             tin = obj.bcs.Toin/fM;
@@ -1811,6 +1856,7 @@ classdef DNS_case < handle
             vin = Min*sqrt(gam*rgas*tin);
             Etin = pin/(gam-1) + 0.5*roin*vin^2;
 
+            % Post shock conditions
             Ms = sqrt(fM/(gam*Min^2 - 0.5*(gam-1)));
             ps = pin*(1+2*gam*(Min^2-1)/(gam+1));
             ros = 0.5*roin*(gam+1)*Min^2/fM;
@@ -1818,14 +1864,39 @@ classdef DNS_case < handle
             vs = Ms*sqrt(gam*rgas*Ts);
             Ets = ps/(gam-1) + 0.5*ros*vs^2;
 
-            [ni, nj] = size(obj.blk.x{1});
+            % BL profiles
+            if theta_in > 0
+                [vel_prof, po_prof, To_prof, T_prof] = blasius_bl(obj.bcs.Toin, vin, theta_in, obj.blk.y{1}(1,:), obj.gas);
+            else
+                vel_prof = ones(1, nj);
+                po_prof = ones(1, nj);
+                To_prof = ones(1, nj);
+                T_prof = ones(1, nj);
+            end
+
+            Et_prof = (roin./T_prof) .* ((obj.gas.cp/obj.gas.gam) * tin * T_prof + vin^2 * vel_prof.^2/2);
+            Et_prof = Et_prof/Et_prof(end);
+
+
+            blfn_vel = ones(ni,nj).*vel_prof;
+            blfn_ro = ones(ni, nj)./T_prof;
+            blfn_et = ones(ni,nj).*Et_prof;
+
+            shfn = tanh((flow.blk.x{1}-xShock)/Lshock);
+
+
             nk = obj.solver.nk;
             flow.v{1} = zeros(ni, nj, nk);
             flow.w{1} = flow.v{1};
-            shfn = tanh((flow.blk.x{1}-xShock)/Lshock);
-            flow.u{1} = 0.5*((vin + vs) - (vin-vs)*shfn);
-            flow.ro{1} = 0.5*((roin + ros) - (roin-ros)*shfn);
-            flow.Et{1} = 0.5*((Etin+Ets) - (Etin-Ets)*shfn);
+            flow.u{1} = 0.5*((vin + vs) - (vin-vs)*shfn).*blfn_vel;
+            flow.ro{1} = 0.5*((roin + ros) - (roin-ros)*shfn).*blfn_ro;
+            flow.Et{1} = 0.5*((Etin+Ets) - (Etin-Ets)*shfn).*blfn_et;
+        end
+
+        function update_Min(obj, M)
+            obj.bcs.vin = Vel_M(M, obj.bcs.Toin, obj.gas.cp, obj.gas.gam);
+            obj.bcs.pexit = obj.bcs.Poin*p_p0(M, obj.gas.gam);
+            obj.writeInputFiles;
         end
     end
 end

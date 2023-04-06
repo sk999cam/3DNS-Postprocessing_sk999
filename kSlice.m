@@ -16,11 +16,11 @@ classdef kSlice < kCut
     end
 
     methods
-        function obj = kSlice(blk, gas, casedir, nSlice, casetype, ishere)
+        function obj = kSlice(blk, gas, casedir, nSlice, time, casetype, ishere)
             obj@kCut(blk, gas);
             disp('Constructing kSlice')
 
-            if nargin < 6
+            if nargin < 7
                 ishere = false;
             end
         
@@ -28,6 +28,7 @@ classdef kSlice < kCut
     
                 if nargin > 2
                     obj.nSlice = nSlice;
+                    obj.time = time;
         
                     for nb = 1:obj.NB
 
