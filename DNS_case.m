@@ -50,201 +50,204 @@ classdef DNS_case < handle
         function obj = DNS_case(casename,run)
             %DNS_CASE Construct an instance of this class
             %   Detailed explanation goes here
-            obj.casename = casename;
-            obj.casepath = fullfile(pwd,obj.casename);
-            
-            if nargin < 2 || isempty(run)
-                obj.runpath = obj.casepath;
-                obj.run = [];
-            elseif length(run) == 1
-                obj.run = run;
-                obj.runpath = fullfile(obj.casepath,['run' num2str(obj.run)]);
-                obj.runpaths = obj.runpath;
-            else
-                obj.run = run;
-                obj.runpaths = {};
-                obj.runpath = fullfile(obj.casepath,['run' num2str(obj.run(end))]); 
-                for ir = 1:length(run)
-                    obj.runpaths{ir} = fullfile(obj.casepath,['run' num2str(obj.run(ir))]);
-                end
-            end
-            disp(obj.casepath)
-
-            if exist(fullfile(obj.casepath,'body.txt'),'file')
-                obj.casetype = 'gpu';
-            else
-                obj.casetype = 'cpu';
-            end
-            fprintf('Case type: %s\n', obj.casetype);
-
-            rcase = read_case(casename, obj.casetype, obj.run);
-            obj.NB = rcase.NB;
-            obj.blk = rcase.blk;
-            obj.next_block = rcase.next_block;
-            obj.next_patch = rcase.next_patch;
-            obj.corner = rcase.corner;
-            obj.bcs = rcase.bcs;
-            obj.gas = rcase.gas;
-            obj.solver = rcase.solver;
-            obj.blk.inlet_blocks{1} = rcase.inlet_blocks;
-            obj.blk.z = linspace(0, obj.solver.span, obj.blk.nk{1});
-            obj.blk.viewarea = [];
-            if obj.NB == 9
-                obj.topology = 1;
-                obj.blk.oblocks = [3 5 7 4];
-                obj.blk.oblocks_flip = [0 0 1 1];
-            elseif obj.NB == 12
-                obj.topology = 2;
-                obj.blk.oblocks = [4 6 9 5];
-                obj.blk.oblocks_flip = [0 0 1 1];
-                obj.blk.viewarea = [-0.6 2 -0.5 0.5];
-            else
-                obj.topology = 3;
-                obj.blk.oblocks = [1];
-                obj.blk.oblocks_flip = [0];
-                obj.blk.viewarea = [0 max(obj.blk.x{1},[],'all') ...
-                    min(obj.blk.y{1},[],'all') max(obj.blk.y{1},[],'all')];
-            end
-            
-            if ~isempty(obj.blk.viewarea)
-                obj.blk.aspect = [(obj.blk.viewarea(2)-obj.blk.viewarea(1)) ...
-                    (obj.blk.viewarea(4)-obj.blk.viewarea(3)) 1];
-            end
-
-            if obj.NB == 12
-            end
-
-            if isfile(fullfile(obj.runpath,'slice_time.txt'))
-                obj.nSlices = size(readmatrix(fullfile(obj.runpath,'slice_time.txt')),1);
-            end
-%             cpu_file_path = fullfile(obj.runpath, 'input_cpu.txt');
-%             fid = fopen(cpu_file_path);
-%             obj.NB = str2num(fgetl(fid));
-%             fprintf('NB = %d\n', obj.NB);
-%             obj.blk.blockdims = zeros(obj.NB,3);
-%             for nb=1:obj.NB
-%                 nijk = str2num(fgetl(fid))
-%                 obj.blk.blockdims(nb,:) = nijk;
-%                 procdims = str2num(fgetl(fid))
-%                 obj.solver.npp = floor(nijk(1)/procdims(1));
-%                 if nb==1, obj.blk.npp = nijk(1)/procdims(1); end
-%                 nskip = sum(str2num(fgetl(fid)) == 0);
-%                 for i=1:nskip
-%                     fgetl(fid);
-%                 end
-%             end
-%             ncorner = str2num(fgetl(fid));
-%             for i=1:ncorner
-%                 temp = str2num(fgetl(fid));
-%                 skip = temp(1);
-%                 for i=1:skip
-%                     fgetl(fid);
-%                 end
-%             end
-%             temp = str2num(fgetl(fid));
-%             obj.solver.niter = temp(1);
-%             obj.solver.nwrite = temp(2);
-%             obj.solver.ncut = temp(3);
-% 
-%             temp = str2num(fgetl(fid));
-%             obj.solver.cfl = temp(1);
-%             obj.solver.sigma = temp(2);
-%             obj.solver.ifsplit = temp(3);
-%             obj.solver.ifsat = temp(4);
-%             obj.solver.ifLES = temp(5);
-% 
-%             temp = str2num(fgetl(fid));
-%             obj.bcs.Toin = temp(1);
-%             obj.bcs.Poin = temp(2);
-%             obj.bcs.pexit = temp(3);
-%             obj.bcs.vin = temp(4);
-%             obj.bcs.alpha = temp(5);
-%             obj.bcs.cax = temp(6);
-%             obj.bcs.aturb = temp(7);
-%             obj.bcs.lturb = temp(8);
-%             obj.bcs.ilength = temp(9);
-%             obj.bcs.radprof = temp(10);
-%             obj.bcs.gamma = 0.0;
-%             obj.bcs.g_z = 0.0;
-% 
-%             temp = str2num(fgetl(fid));
-%             obj.gas.gam = temp(1);
-%             obj.gas.cp = temp(2);
-%             obj.gas.mu_ref = temp(3);
-%             obj.gas.mu_tref = temp(4);
-%             obj.gas.mu_cref = temp(5);
-%             obj.gas.pr = temp(6);
-% 
-%             temp = str2num(fgetl(fid));
-%             obj.solver.span = temp(1);
-%             obj.solver.fexpan = temp(2);
-%             obj.blk.span = temp(1);
-% 
-%             temp = str2num(fgetl(fid));
-%             obj.solver.irestart = temp(1);
-%             obj.solver.istats = temp(2);
-%             
-%             n_inlets = str2num(fgetl(fid));
-%             for nin=1:n_inlets
-%                 obj.blk.inlet_blocks{nin} = [];
-%                 n_inlet_blocks = str2num(fgetl(fid));
-%                 for i=1:n_inlet_blocks
-%                     obj.blk.inlet_blocks{nin}(end+1) = str2num(fgetl(fid));
-%                 end
-%             end
-%             temp = fgetl(fid);
-%             obj.solver.istability = str2num(temp(1));
-% 
-%             if obj.solver.istability == 2
-%                 obj.iTrip = true;
-%                 %obj.setTrip()
-%             end
-% 
-%             temp = str2num(fgetl(fid));
-%             obj.bcs.twall = temp(3);
-% 
-%             fclose(fid);
-
-%             [blk_tmp, ~] = read_grid(casename);
-%             
-%             for i=1:obj.NB
-%                 obj.blk.x{i} = blk_tmp.x{i};
-%                 obj.blk.y{i} = blk_tmp.y{i};
-%                 obj.blk.nk{i} = blk_tmp.nk{i};
-%             end
-
-            obj.solver.nk = obj.blk.nk{1};
-
-            if length(obj.blk.inlet_blocks) == 1
-                obj.nj_inlet = 0;
-                y_inlet = [];
-                for i=1:length(obj.blk.inlet_blocks{1})
-                    y_inlet = [y_inlet obj.blk.y{obj.blk.inlet_blocks{1}(i)}(1,:,1)];
-                    ymidnow(i) = obj.blk.y{obj.blk.inlet_blocks{1}(i)}(1,ceil(end/2));
-                end
-                obj.y_inlet = sort(unique(y_inlet));
-                obj.nj_inlet = length(obj.y_inlet);
-                obj.inlet_width = max(obj.y_inlet) - min(obj.y_inlet);
+            if nargin > 0
+                obj.casename = casename;
+                obj.casepath = fullfile(pwd,obj.casename);
                 
-                [~,inds] = sort(ymidnow);
-                obj.blk.inlet_blocks{1} = obj.blk.inlet_blocks{1}(inds);
+                if nargin < 2 || isempty(run)
+                    obj.runpath = obj.casepath;
+                    obj.run = [];
+                elseif length(run) == 1
+                    obj.run = run;
+                    obj.runpath = fullfile(obj.casepath,['run' num2str(obj.run)]);
+                    obj.runpaths = obj.runpath;
+                else
+                    obj.run = run;
+                    obj.runpaths = {};
+                    obj.runpath = fullfile(obj.casepath,['run' num2str(obj.run(end))]); 
+                    for ir = 1:length(run)
+                        obj.runpaths{ir} = fullfile(obj.casepath,['run' num2str(obj.run(ir))]);
+                    end
+                end
+                disp(obj.casepath)
+    
+                if exist(fullfile(obj.casepath,'body.txt'),'file')
+                    obj.casetype = 'gpu';
+                else
+                    obj.casetype = 'cpu';
+                end
+                fprintf('Case type: %s\n', obj.casetype);
+    
+                rcase = read_case(casename, obj.casetype, obj.run);
+                obj.NB = rcase.NB;
+                obj.blk = rcase.blk;
+                obj.blk.next_block = rcase.next_block;
+                obj.blk.next_patch = rcase.next_patch;
+                obj.next_block = rcase.next_block;
+                obj.next_patch = rcase.next_patch;
+                obj.corner = rcase.corner;
+                obj.bcs = rcase.bcs;
+                obj.gas = rcase.gas;
+                obj.solver = rcase.solver;
+                obj.blk.inlet_blocks{1} = rcase.inlet_blocks;
+                obj.blk.z = linspace(0, obj.solver.span, obj.blk.nk);
+                obj.blk.viewarea = [];
+                if obj.NB == 9
+                    obj.topology = 1;
+                    obj.blk.oblocks = [3 5 7 4];
+                    obj.blk.oblocks_flip = [0 0 1 1];
+                elseif obj.NB == 12
+                    obj.topology = 2;
+                    obj.blk.oblocks = [4 6 9 5];
+                    obj.blk.oblocks_flip = [0 0 1 1];
+                    obj.blk.viewarea = [-0.6 2 -0.5 0.5];
+                else
+                    obj.topology = 3;
+                    obj.blk.oblocks = [1];
+                    obj.blk.oblocks_flip = [0];
+                    obj.blk.viewarea = [0 max(obj.blk.x{1},[],'all') ...
+                        min(obj.blk.y{1},[],'all') max(obj.blk.y{1},[],'all')];
+                end
+                
+                if ~isempty(obj.blk.viewarea)
+                    obj.blk.aspect = [(obj.blk.viewarea(2)-obj.blk.viewarea(1)) ...
+                        (obj.blk.viewarea(4)-obj.blk.viewarea(3)) 1];
+                end
+    
+                if obj.NB == 12
+                end
+    
+                if isfile(fullfile(obj.runpath,'slice_time.txt'))
+                    obj.nSlices = size(readmatrix(fullfile(obj.runpath,'slice_time.txt')),1);
+                end
+    %             cpu_file_path = fullfile(obj.runpath, 'input_cpu.txt');
+    %             fid = fopen(cpu_file_path);
+    %             obj.NB = str2num(fgetl(fid));
+    %             fprintf('NB = %d\n', obj.NB);
+    %             obj.blk.blockdims = zeros(obj.NB,3);
+    %             for nb=1:obj.NB
+    %                 nijk = str2num(fgetl(fid))
+    %                 obj.blk.blockdims(nb,:) = nijk;
+    %                 procdims = str2num(fgetl(fid))
+    %                 obj.solver.npp = floor(nijk(1)/procdims(1));
+    %                 if nb==1, obj.blk.npp = nijk(1)/procdims(1); end
+    %                 nskip = sum(str2num(fgetl(fid)) == 0);
+    %                 for i=1:nskip
+    %                     fgetl(fid);
+    %                 end
+    %             end
+    %             ncorner = str2num(fgetl(fid));
+    %             for i=1:ncorner
+    %                 temp = str2num(fgetl(fid));
+    %                 skip = temp(1);
+    %                 for i=1:skip
+    %                     fgetl(fid);
+    %                 end
+    %             end
+    %             temp = str2num(fgetl(fid));
+    %             obj.solver.niter = temp(1);
+    %             obj.solver.nwrite = temp(2);
+    %             obj.solver.ncut = temp(3);
+    % 
+    %             temp = str2num(fgetl(fid));
+    %             obj.solver.cfl = temp(1);
+    %             obj.solver.sigma = temp(2);
+    %             obj.solver.ifsplit = temp(3);
+    %             obj.solver.ifsat = temp(4);
+    %             obj.solver.ifLES = temp(5);
+    % 
+    %             temp = str2num(fgetl(fid));
+    %             obj.bcs.Toin = temp(1);
+    %             obj.bcs.Poin = temp(2);
+    %             obj.bcs.pexit = temp(3);
+    %             obj.bcs.vin = temp(4);
+    %             obj.bcs.alpha = temp(5);
+    %             obj.bcs.cax = temp(6);
+    %             obj.bcs.aturb = temp(7);
+    %             obj.bcs.lturb = temp(8);
+    %             obj.bcs.ilength = temp(9);
+    %             obj.bcs.radprof = temp(10);
+    %             obj.bcs.gamma = 0.0;
+    %             obj.bcs.g_z = 0.0;
+    % 
+    %             temp = str2num(fgetl(fid));
+    %             obj.gas.gam = temp(1);
+    %             obj.gas.cp = temp(2);
+    %             obj.gas.mu_ref = temp(3);
+    %             obj.gas.mu_tref = temp(4);
+    %             obj.gas.mu_cref = temp(5);
+    %             obj.gas.pr = temp(6);
+    % 
+    %             temp = str2num(fgetl(fid));
+    %             obj.solver.span = temp(1);
+    %             obj.solver.fexpan = temp(2);
+    %             obj.blk.span = temp(1);
+    % 
+    %             temp = str2num(fgetl(fid));
+    %             obj.solver.irestart = temp(1);
+    %             obj.solver.istats = temp(2);
+    %             
+    %             n_inlets = str2num(fgetl(fid));
+    %             for nin=1:n_inlets
+    %                 obj.blk.inlet_blocks{nin} = [];
+    %                 n_inlet_blocks = str2num(fgetl(fid));
+    %                 for i=1:n_inlet_blocks
+    %                     obj.blk.inlet_blocks{nin}(end+1) = str2num(fgetl(fid));
+    %                 end
+    %             end
+    %             temp = fgetl(fid);
+    %             obj.solver.istability = str2num(temp(1));
+    % 
+    %             if obj.solver.istability == 2
+    %                 obj.iTrip = true;
+    %                 %obj.setTrip()
+    %             end
+    % 
+    %             temp = str2num(fgetl(fid));
+    %             obj.bcs.twall = temp(3);
+    % 
+    %             fclose(fid);
+    
+    %             [blk_tmp, ~] = read_grid(casename);
+    %             
+    %             for i=1:obj.NB
+    %                 obj.blk.x{i} = blk_tmp.x{i};
+    %                 obj.blk.y{i} = blk_tmp.y{i};
+    %                 obj.blk.nk{i} = blk_tmp.nk{i};
+    %             end
+    
+                obj.solver.nk = obj.blk.nk;
+    
+                if length(obj.blk.inlet_blocks) == 1
+                    obj.nj_inlet = 0;
+                    y_inlet = [];
+                    for i=1:length(obj.blk.inlet_blocks{1})
+                        y_inlet = [y_inlet obj.blk.y{obj.blk.inlet_blocks{1}(i)}(1,:,1)];
+                        ymidnow(i) = obj.blk.y{obj.blk.inlet_blocks{1}(i)}(1,ceil(end/2));
+                    end
+                    obj.y_inlet = sort(unique(y_inlet));
+                    obj.nj_inlet = length(obj.y_inlet);
+                    obj.inlet_width = max(obj.y_inlet) - min(obj.y_inlet);
+                    
+                    [~,inds] = sort(ymidnow);
+                    obj.blk.inlet_blocks{1} = obj.blk.inlet_blocks{1}(inds);
+                end
+                
+    
+                obj.trip = [];
+                if obj.solver.istability == 2
+                    obj.iTrip = true;
+                    obj.readTrip;
+                else
+                    obj.iTrip = false;
+                end
+                slices = dir(fullfile(obj.runpath,'k_cuts','kcu2_1_*'));
+                obj.nSlices = length(slices);
+                if obj.NB == 12
+                    obj.blk.io_surfaces.blks = [1 2 2 7 11 11 10 12 12 8 3 3];
+                    obj.blk.io_surfaces.types = [1 1 3 3 3 2 2 2 4 4 4 1];
+                end
             end
-            
-
-            obj.trip = [];
-            if obj.solver.istability == 2
-                obj.iTrip = true;
-                obj.readTrip;
-            else
-                obj.iTrip = false;
-            end
-            slices = dir(fullfile(obj.runpath,'k_cuts','kcu2_1_*'));
-            obj.nSlices = length(slices);
-            if obj.NB == 12
-                obj.blk.io_surfaces.blks = [1 2 2 7 11 11 10 12 12 8 3 3];
-                obj.blk.io_surfaces.types = [1 1 3 3 3 2 2 2 4 4 4 1];
-            end
-
         end
 
         function writeCase(obj, nkproc)
@@ -329,6 +332,7 @@ classdef DNS_case < handle
                     end
                     
                     %obj.nSlices = obj.nSlices + length(slices);
+                    inds = [];
                     for i=1:length(slices)
                         inds(i) = str2num(slices(i).name(8:end));
                     end
@@ -438,7 +442,7 @@ classdef DNS_case < handle
 
         function readMeanFlow(obj)
             %READMEANFLOW Read in 2D mean flow
-            obj.meanFlow = meanSlice(obj.runpath,obj.blk,obj.gas);
+            obj.meanFlow = meanSlice(obj.runpath,obj.blk,obj.gas,obj.casetype);
         end
 
         function readMeanFlows(obj, calc_s_unst)
@@ -473,7 +477,7 @@ classdef DNS_case < handle
 
         function readInflowTurb(obj)
             %READINFLOWTURB Read inflow turbulence file
-            obj.inflowTurb = volTurbulence(obj.casepath,obj.bcs.ilength,obj.blk.nk{1},obj.bcs.lturb,obj.y_inlet,obj.solver.span);
+            obj.inflowTurb = volTurbulence(obj.casepath,obj.bcs.ilength,obj.blk.nk,obj.bcs.lturb,obj.y_inlet,obj.solver.span);
         end
 
         function readProbes(obj)
@@ -1629,7 +1633,7 @@ classdef DNS_case < handle
             obj.blk.y = newblk.y;
             obj.blk.nk = newblk.nk;
             obj.blk.npp = newblk.npp;
-            obj.blk.z = linspace(0, obj.solver.span, obj.blk.nk{1});
+            obj.blk.z = linspace(0, obj.solver.span, obj.blk.nk);
             obj.blk.blockdims = newblk.blockdims;
 
             y_inlet = [];
@@ -1665,6 +1669,29 @@ classdef DNS_case < handle
             end
         end
 
+        function newCase = setup_new_case(obj, name, newBlk)
+            newCase = DNS_case;
+            newCase.casename=name;
+            newCase.casetype = obj.casetype;
+            newCase.topology = obj.topology;
+            newCase.casepath = fullfile(fileparts(obj.casepath), name);
+            if ~exist(newCase.casepath,'dir')
+                mkdir(newCase.casepath);
+            end
+            newCase.blk = newBlk;
+            newCase.next_block = obj.next_block;
+            newCase.next_patch = obj.next_patch;
+            newCase.corner = obj.corner;
+            newCase.solver = obj.solver;
+            newCase.bcs = obj.bcs;
+            newCase.gas = obj.gas;
+            newCase.NB = obj.NB;
+            newCase.trip = obj.trip;
+            newCase.iTrip = obj.iTrip;
+
+            newCase.writeInputFiles;
+            newCase.writeGridFiles;
+        end
 
         function writeMovie(obj, slices, prop, lims, label, area)
             if nargin < 6 || isempty(area)

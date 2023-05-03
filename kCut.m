@@ -16,6 +16,8 @@ classdef kCut < flowSlice
         n;
         ssurf;          % Surface distance fron LE
         vortZ;          % Z vorticity
+        owrapblock = 0; % wall topology - 0 for channel, nb of last block in o
+                        % grid for closed loop (eg blade profile)
     end
 
     methods
@@ -37,17 +39,20 @@ classdef kCut < flowSlice
                     jo = [];
                     blko = [];
                     for i=1:length(obj.oblocks)
-                        ni = size(blk.x{obj.oblocks(i)},1);
-                        nj = size(blk.x{obj.oblocks(i)},2);
-                        xtmp = blk.x{obj.oblocks(i)}(:,:);
-                        ytmp = blk.y{obj.oblocks(i)}(:,:);
+                        nb = obj.oblocks(i);
+                        ni = size(blk.x{nb},1);
+                        nj = size(blk.x{nb},2);
+                        xtmp = blk.x{nb}(:,:);
+                        ytmp = blk.y{nb}(:,:);
                         itmp = 1:ni;
                         itmp = repmat(itmp',[1 nj]);
                         jtmp = 1:nj;
                         jtmp = repmat(flip(jtmp), [ni 1]);
-                        blktmp = obj.oblocks(i)*ones(ni,nj);
-                        xtmp = flip(xtmp,2);
-                        ytmp = flip(ytmp,2);
+                        blktmp = nb*ones(ni,nj);
+                        if blk.next_patch{nb}.jp == 3
+                            xtmp = flip(xtmp,2);
+                            ytmp = flip(ytmp,2);
+                        end
                         if obj.oblocks_flip(i) == 1
                             xtmp = flip(xtmp);
                             ytmp = flip(ytmp);
@@ -71,6 +76,7 @@ classdef kCut < flowSlice
                             io = io(1:end-1,:);
                             jo = jo(1:end-1,:);
                             blko = blko(1:end-1,:);
+                            obj.owrapblock = nb;
                         end
 
                     end
@@ -160,14 +166,23 @@ classdef kCut < flowSlice
                 blfield = [];
                 propnow = obj.(prop);
                 for i=1:length(obj.oblocks)
+                    nb = obj.oblocks(i);
                     clear temp
-                    temp = propnow{obj.oblocks(i)};
-                    temp = flip(temp,2);
+                    temp = propnow{nb};
+                    if obj.blk.next_patch{nb}.jp == 3
+                        temp = flip(temp,2);
+                    end
                     %size(temp)
                     if obj.oblocks_flip(i) == 1
                         temp = flip(temp);
                     end
-                    blfield = [blfield; temp(1:end-1,:)];
+                    if size(blfield,1) == 0
+                        blfield = temp;
+                    elseif nb == obj.owrapblock
+                        blfield = [blfield; temp(2:end-1,:)];
+                    else
+                        blfield = [blfield; temp(2:end,:)];
+                    end
                 end
                 blfield = blfield(obj.iLE:obj.iTE,:);
                 %size(blfield,1)
@@ -278,8 +293,9 @@ classdef kCut < flowSlice
             xo = [];
             yo = [];
             for i=1:length(obj.oblocks)
-                xtmp = obj.blk.x{obj.oblocks(i)}(:,:);
-                ytmp = obj.blk.y{obj.oblocks(i)}(:,:);
+                nb = obj.oblocks(i);
+                xtmp = obj.blk.x{nb}(:,:);
+                ytmp = obj.blk.y{nb}(:,:);
                 xtmp = flip(xtmp,2);
                 ytmp = flip(ytmp,2);
                 if obj.oblocks_flip(i) == 1

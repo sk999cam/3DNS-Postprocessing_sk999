@@ -39,6 +39,10 @@ fprintf('Writing input files to directory: %s\n',dir)
 if(~exist(dir,'dir'))
 mkdir(dir);
 end
+if strcmp(casetype,'gpu')
+    fid = fopen(fullfile(dir,'body.txt'),'a');
+    fclose(fid);
+end
 if ismember(casetype, {'gpu', 'all'})
     % Now write header for new input file
     % GPU input

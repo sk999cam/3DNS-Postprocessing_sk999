@@ -24,7 +24,7 @@ classdef volFlow
         nk;
         span;
         z;
-        Q;              % Q Criterion
+        Qstore;              % Q Criterion
         casetype;
         flowpath;
     end
@@ -37,6 +37,7 @@ classdef volFlow
         vel;            % Velocity
         Msurf;          % Surface Mach No
         MSlice;
+        Q;
         
     end
 
@@ -191,15 +192,18 @@ classdef volFlow
         end
 
         function value = get.Q(obj)
-            if ~isempty(obj.Q)
-                value = obj.Q;
-            else
+            obj.set_Q;
+            value = obj.Qstore;
+        end
+
+        function obj = set_Q(obj)
+            if isempty(obj.Qstore)
                 value = cell(1,obj.NB);
                 for nb = obj.blk.oblocks
                     fprintf('Calculating Q criterion in block %d\n',nb)
                     value{nb} = Q_criterion(obj.blk.x{nb},obj.blk.y{nb},obj.blk.z,obj.u{nb},obj.v{nb},obj.w{nb});
                 end
-                obj.Q = value;
+                obj.Qstore = value;
             end
         end
 
@@ -343,8 +347,8 @@ classdef volFlow
 
                 [fic, fjc] = obj.get_spacing(obj.blk.x{ib},obj.blk.y{ib});
                 [fi, fj] = obj.get_spacing(newcase.blk.x{ib},newcase.blk.y{ib});
-                fkc = linspace(0,1,obj.blk.nk{1});
-                fk = linspace(0,1,newcase.blk.nk{1});
+                fkc = linspace(0,1,obj.blk.nk);
+                fk = linspace(0,1,newcase.blk.nk);
                 
 %                 if ~ismember(ib, obj.blk.oblocks)
 %                     ib
