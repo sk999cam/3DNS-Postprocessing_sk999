@@ -1,4 +1,4 @@
-function write_input_files(casename,blk,next_block,next_patch,corner,bcs,gas,solver,varargin)
+function write_input_files(casename,blk,bcs,gas,solver,varargin)
 nargin;
 p = inputParser;
 addOptional(p,'topology',[]);
@@ -31,7 +31,7 @@ end
 npp = solver.npp;
 fprintf('Using npp = %d\n', npp)
 NB = length(blk.x);
-ncorner = length(corner);   
+ncorner = length(blk.corner);   
 
 dir = fullfile(pwd,casename);
 fprintf('Writing input files to directory: %s\n',dir)
@@ -57,15 +57,15 @@ if ismember(casetype, {'gpu', 'all'})
     y = blk.y{ib};
     [ni,nj]=size(x);   
     
-    im_next_block = next_block{ib}.im;
-    ip_next_block = next_block{ib}.ip;
-    jm_next_block = next_block{ib}.jm;
-    jp_next_block = next_block{ib}.jp;
+    im_next_block = blk.next_block{ib}.im;
+    ip_next_block = blk.next_block{ib}.ip;
+    jm_next_block = blk.next_block{ib}.jm;
+    jp_next_block = blk.next_block{ib}.jp;
     
-    im_next_patch = next_patch{ib}.im;
-    ip_next_patch = next_patch{ib}.ip;
-    jm_next_patch = next_patch{ib}.jm;
-    jp_next_patch = next_patch{ib}.jp;
+    im_next_patch = blk.next_patch{ib}.im;
+    ip_next_patch = blk.next_patch{ib}.ip;
+    jm_next_patch = blk.next_patch{ib}.jm;
+    jp_next_patch = blk.next_patch{ib}.jp;
         
     
     %nkproc = 1;
@@ -115,11 +115,11 @@ if ismember(casetype, {'gpu', 'all'})
     end
     
     for n=1:ncorner
-    fprintf(fidin,'%d %d\n', [corner{n}.Nb, cor_type(n)]);
-    for nb=1:corner{n}.Nb
-    ib = corner{n}.block{nb};
-    ic = corner{n}.i{nb};
-    jc = corner{n}.j{nb};
+    fprintf(fidin,'%d %d\n', [blk.corner{n}.Nb, cor_type(n)]);
+    for nb=1:blk.corner{n}.Nb
+    ib = blk.corner{n}.block{nb};
+    ic = blk.corner{n}.i{nb};
+    jc = blk.corner{n}.j{nb};
     if(ic>1); ic = NI(ib); end
     if(jc>1); jc = NJ(ib); end
     fprintf(fidin,'%d %d %d\n', [ib ic jc]);
@@ -127,10 +127,13 @@ if ismember(casetype, {'gpu', 'all'})
     
     end
     
-    fprintf(fidin,'%d\n',1); % 1 block group
-    fprintf(fidin,'%d\n',NB); % NB blocks in group
-    for ib=1:NB
-    fprintf(fidin,'%d ',ib); % blocks in group
+    fprintf(fidin,'%d',blk.nbg); % 1 block group
+    for nbg = 1:blk.nbg
+        nb_bg = length(blk.block_groups{nbg});
+        fprintf(fidin,'\n%d\n',nb_bg); % NB blocks in group
+        for ib=1:nb_bg
+            fprintf(fidin,'%d ',blk.block_groups{nbg}(ib)); % blocks in group
+        end
     end
     
     % 
@@ -177,15 +180,15 @@ if ismember(casetype, {'cpu','both'})
     [ni,nj]=size(x);
     nk = solver.nk;
     
-    im_next_block = next_block{ib}.im;
-    ip_next_block = next_block{ib}.ip;
-    jm_next_block = next_block{ib}.jm;
-    jp_next_block = next_block{ib}.jp;
+    im_next_block = blk.next_block{ib}.im;
+    ip_next_block = blk.next_block{ib}.ip;
+    jm_next_block = blk.next_block{ib}.jm;
+    jp_next_block = blk.next_block{ib}.jp;
     
-    im_next_patch = next_patch{ib}.im;
-    ip_next_patch = next_patch{ib}.ip;
-    jm_next_patch = next_patch{ib}.jm;
-    jp_next_patch = next_patch{ib}.jp;
+    im_next_patch = blk.next_patch{ib}.im;
+    ip_next_patch = blk.next_patch{ib}.ip;
+    jm_next_patch = blk.next_patch{ib}.jm;
+    jp_next_patch = blk.next_patch{ib}.jp;
         
     
     
@@ -235,11 +238,11 @@ if ismember(casetype, {'cpu','both'})
     end
     
     for n=1:ncorner
-    fprintf(fidin,'%d %d\n', [corner{n}.Nb, cor_type(n)]);
-    for nb=1:corner{n}.Nb
-    ib = corner{n}.block{nb};
-    ic = corner{n}.i{nb};
-    jc = corner{n}.j{nb};
+    fprintf(fidin,'%d %d\n', [blk.corner{n}.Nb, cor_type(n)]);
+    for nb=1:blk.corner{n}.Nb
+    ib = blk.corner{n}.block{nb};
+    ic = blk.corner{n}.i{nb};
+    jc = blk.corner{n}.j{nb};
     if(ic>1); ic = NI(ib); end
     if(jc>1); jc = NJ(ib); end
     fprintf(fidin,'%d %d %d\n', [ib ic jc]);
@@ -277,9 +280,15 @@ if ismember(casetype, {'cpu','both'})
         elseif topology == 2
             fprintf(fidin,'%d\n', [3]);   
             fprintf(fidin,'%d\n%d\n%d\n', [1 2 3]);
-        elseif topology == 3
-            fprintf(fidin,'%d\n', [1]);   
-            fprintf(fidin,'%d\n', [1]);
+        elseif topology == 3 
+            inlet_blocks = [1];
+            while blk.next_block{inlet_blocks(end)}.jp ~= 0
+                inlet_blocks(end+1) = blk.next_block{inlet_blocks(end)}.jp;
+            end
+            fprintf(fidin,'%d\n', length(inlet_blocks));
+            for dum  = 1:length(inlet_blocks)
+                fprintf(fidin,'%d\n', inlet_blocks(dum))
+            end
         end
          
         % stability stuff   

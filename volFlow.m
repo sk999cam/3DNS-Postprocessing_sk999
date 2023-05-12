@@ -349,28 +349,6 @@ classdef volFlow
                 [fi, fj] = obj.get_spacing(newcase.blk.x{ib},newcase.blk.y{ib});
                 fkc = linspace(0,1,obj.blk.nk);
                 fk = linspace(0,1,newcase.blk.nk);
-                
-%                 if ~ismember(ib, obj.blk.oblocks)
-%                     ib
-%                     if obj.blk.x{ib}(1,1) < 0.2; iq = 1; else iq = size(obj.blk.x{ib},1); end
-%                     if obj.blk.y{ib}(1,1) < 0; jq = 1; else jq = size(obj.blk.x{ib},2); end
-%                     fic = (obj.blk.x{ib}(:,jq) - obj.blk.x{ib}(1,jq))/(obj.blk.x{ib}(end,jq) - obj.blk.x{ib}(1,jq));
-%                     fjc = (obj.blk.y{ib}(iq,:) - obj.blk.y{ib}(iq,:))/(obj.blk.y{ib}(iq,end) - obj.blk.y{ib}(iq,1));
-%                     fic = fic';
-% 
-%                     
-% 
-%                     if newblk{ib}.x(1,1) < 0.2; iq = 1; else iq = size(newblk{ib}.x,1); end
-%                     if newblk{ib}.y(1,1) < 0; jq = 1; else jq = size(newblk{ib}.y,2); end
-%                     fi = (newblk{ib}.x(:,jq) - newblk{ib}.x(1,jq))/(newblk{ib}.x(end,jq) - newblk{ib}.x(1,jq));
-%                     fj = (newblk{ib}.y(iq,:) - newblk{ib}.y(iq,1))/(newblk{ib}.y(iq,end) - newblk{ib}.y(iq,1));
-%                     fi = fi';
-%                 else
-%                     fic = linspace(0,1,size(obj.blk.x{ib},1));
-%                     fjc = linspace(0,1,size(obj.blk.x{ib},2));
-%                     fi = linspace(0,1,size(newblk{ib}.x,1));
-%                     fj = linspace(0,1,size(newblk{ib}.x,2));
-%                 end
 
                 [Jc,Ic,Kc] = meshgrid(fjc,fic,fkc);
                 [J,I,K] = meshgrid(fj,fi,fk);
@@ -391,7 +369,9 @@ classdef volFlow
             newFlow.Et = Etnow;
 
             newcase.instFlow = newFlow;
+%             newcase.ins
         end
+
 
         function writeFlowBlock(obj, path, nb, type)
             

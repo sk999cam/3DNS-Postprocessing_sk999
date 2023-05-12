@@ -282,13 +282,13 @@ function rcase = read_case(casename, type, run)
 
             nBlockGroups = str2num(char(fgetl(f)));
 
+
             for nbg = 1:nBlockGroups
                 nb_bg(nbg) = str2num(char(fgetl(f)));
                 temp = str2num(char(split(fgetl(f))));
                 block{nbg} = temp;
             end
 
-            blk.block = block;
             
         
             temp = str2num(char(split(fgetl(f))));
@@ -362,6 +362,8 @@ function rcase = read_case(casename, type, run)
             blk = read_grid(casename);
             blk.span = solver.span;
             blk.npp = solver.npp;
+            blk.nbg = nBlockGroups;
+            blk.block_groups = block;
         
             rcase.NB = NB;
             rcase.blk = blk;

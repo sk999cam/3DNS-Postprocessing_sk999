@@ -11,9 +11,6 @@ classdef DNS_case < handle
         runpaths;
         run;
         blk;
-        next_block;
-        next_patch;
-        corner;
         solver;
         bcs;
         gas;
@@ -47,10 +44,10 @@ classdef DNS_case < handle
     end
 
     methods
-        function obj = DNS_case(casename,run)
+        function obj = DNS_case(casename,run,args)
             %DNS_CASE Construct an instance of this class
             %   Detailed explanation goes here
-            if nargin > 0
+            if nargin > 0 && ~isempty(casename)
                 obj.casename = casename;
                 obj.casepath = fullfile(pwd,obj.casename);
                 
@@ -70,8 +67,8 @@ classdef DNS_case < handle
                     end
                 end
                 disp(obj.casepath)
-    
-                if exist(fullfile(obj.casepath,'body.txt'),'file')
+
+                 if exist(fullfile(obj.casepath,'body.txt'),'file')
                     obj.casetype = 'gpu';
                 else
                     obj.casetype = 'cpu';
@@ -83,138 +80,36 @@ classdef DNS_case < handle
                 obj.blk = rcase.blk;
                 obj.blk.next_block = rcase.next_block;
                 obj.blk.next_patch = rcase.next_patch;
-                obj.next_block = rcase.next_block;
-                obj.next_patch = rcase.next_patch;
-                obj.corner = rcase.corner;
+%                 obj.next_block = rcase.next_block;
+%                 obj.next_patch = rcase.next_patch;
+                obj.blk.corner = rcase.corner;
                 obj.bcs = rcase.bcs;
                 obj.gas = rcase.gas;
                 obj.solver = rcase.solver;
                 obj.blk.inlet_blocks{1} = rcase.inlet_blocks;
                 obj.blk.z = linspace(0, obj.solver.span, obj.blk.nk);
                 obj.blk.viewarea = [];
-                if obj.NB == 9
-                    obj.topology = 1;
-                    obj.blk.oblocks = [3 5 7 4];
-                    obj.blk.oblocks_flip = [0 0 1 1];
-                elseif obj.NB == 12
-                    obj.topology = 2;
-                    obj.blk.oblocks = [4 6 9 5];
-                    obj.blk.oblocks_flip = [0 0 1 1];
-                    obj.blk.viewarea = [-0.6 2 -0.5 0.5];
+                if nargin < 3 || ~isfield(args,'topology')
+                    if obj.NB == 9
+                        obj.topology = 1;
+                    elseif obj.NB == 12
+                        obj.topology = 2;
+                        obj.blk.viewarea = [-0.6 2 -0.5 0.5];
+                    end
                 else
-                    obj.topology = 3;
-                    obj.blk.oblocks = [1];
-                    obj.blk.oblocks_flip = [0];
-                    obj.blk.viewarea = [0 max(obj.blk.x{1},[],'all') ...
-                        min(obj.blk.y{1},[],'all') max(obj.blk.y{1},[],'all')];
+                    obj.topology = args.topology;
                 end
+
+                obj.construct_o_blocks;
                 
                 if ~isempty(obj.blk.viewarea)
                     obj.blk.aspect = [(obj.blk.viewarea(2)-obj.blk.viewarea(1)) ...
                         (obj.blk.viewarea(4)-obj.blk.viewarea(3)) 1];
                 end
     
-                if obj.NB == 12
-                end
-    
                 if isfile(fullfile(obj.runpath,'slice_time.txt'))
                     obj.nSlices = size(readmatrix(fullfile(obj.runpath,'slice_time.txt')),1);
                 end
-    %             cpu_file_path = fullfile(obj.runpath, 'input_cpu.txt');
-    %             fid = fopen(cpu_file_path);
-    %             obj.NB = str2num(fgetl(fid));
-    %             fprintf('NB = %d\n', obj.NB);
-    %             obj.blk.blockdims = zeros(obj.NB,3);
-    %             for nb=1:obj.NB
-    %                 nijk = str2num(fgetl(fid))
-    %                 obj.blk.blockdims(nb,:) = nijk;
-    %                 procdims = str2num(fgetl(fid))
-    %                 obj.solver.npp = floor(nijk(1)/procdims(1));
-    %                 if nb==1, obj.blk.npp = nijk(1)/procdims(1); end
-    %                 nskip = sum(str2num(fgetl(fid)) == 0);
-    %                 for i=1:nskip
-    %                     fgetl(fid);
-    %                 end
-    %             end
-    %             ncorner = str2num(fgetl(fid));
-    %             for i=1:ncorner
-    %                 temp = str2num(fgetl(fid));
-    %                 skip = temp(1);
-    %                 for i=1:skip
-    %                     fgetl(fid);
-    %                 end
-    %             end
-    %             temp = str2num(fgetl(fid));
-    %             obj.solver.niter = temp(1);
-    %             obj.solver.nwrite = temp(2);
-    %             obj.solver.ncut = temp(3);
-    % 
-    %             temp = str2num(fgetl(fid));
-    %             obj.solver.cfl = temp(1);
-    %             obj.solver.sigma = temp(2);
-    %             obj.solver.ifsplit = temp(3);
-    %             obj.solver.ifsat = temp(4);
-    %             obj.solver.ifLES = temp(5);
-    % 
-    %             temp = str2num(fgetl(fid));
-    %             obj.bcs.Toin = temp(1);
-    %             obj.bcs.Poin = temp(2);
-    %             obj.bcs.pexit = temp(3);
-    %             obj.bcs.vin = temp(4);
-    %             obj.bcs.alpha = temp(5);
-    %             obj.bcs.cax = temp(6);
-    %             obj.bcs.aturb = temp(7);
-    %             obj.bcs.lturb = temp(8);
-    %             obj.bcs.ilength = temp(9);
-    %             obj.bcs.radprof = temp(10);
-    %             obj.bcs.gamma = 0.0;
-    %             obj.bcs.g_z = 0.0;
-    % 
-    %             temp = str2num(fgetl(fid));
-    %             obj.gas.gam = temp(1);
-    %             obj.gas.cp = temp(2);
-    %             obj.gas.mu_ref = temp(3);
-    %             obj.gas.mu_tref = temp(4);
-    %             obj.gas.mu_cref = temp(5);
-    %             obj.gas.pr = temp(6);
-    % 
-    %             temp = str2num(fgetl(fid));
-    %             obj.solver.span = temp(1);
-    %             obj.solver.fexpan = temp(2);
-    %             obj.blk.span = temp(1);
-    % 
-    %             temp = str2num(fgetl(fid));
-    %             obj.solver.irestart = temp(1);
-    %             obj.solver.istats = temp(2);
-    %             
-    %             n_inlets = str2num(fgetl(fid));
-    %             for nin=1:n_inlets
-    %                 obj.blk.inlet_blocks{nin} = [];
-    %                 n_inlet_blocks = str2num(fgetl(fid));
-    %                 for i=1:n_inlet_blocks
-    %                     obj.blk.inlet_blocks{nin}(end+1) = str2num(fgetl(fid));
-    %                 end
-    %             end
-    %             temp = fgetl(fid);
-    %             obj.solver.istability = str2num(temp(1));
-    % 
-    %             if obj.solver.istability == 2
-    %                 obj.iTrip = true;
-    %                 %obj.setTrip()
-    %             end
-    % 
-    %             temp = str2num(fgetl(fid));
-    %             obj.bcs.twall = temp(3);
-    % 
-    %             fclose(fid);
-    
-    %             [blk_tmp, ~] = read_grid(casename);
-    %             
-    %             for i=1:obj.NB
-    %                 obj.blk.x{i} = blk_tmp.x{i};
-    %                 obj.blk.y{i} = blk_tmp.y{i};
-    %                 obj.blk.nk{i} = blk_tmp.nk{i};
-    %             end
     
                 obj.solver.nk = obj.blk.nk;
     
@@ -250,14 +145,43 @@ classdef DNS_case < handle
             end
         end
 
-        function writeCase(obj, nkproc)
-            
-            write_case(obj.casename, obj.blk, obj.next_block, obj.next_patch, ...
-                obj.corner, obj.bcs, obj.gas, obj.solver, obj.topology, nkproc);
+        function writeCase(obj)
+            obj.writeGridFiles;
+            obj.writeInputFiles;
+            if ~isempty(obj.instFlow)
+                obj.instFlow.writeFlow();
+            end
         end
 
+        function construct_o_blocks(obj)
+            % Find first wall block, assume flow im -> ip
+            for ib = 1:obj.NB
+                if obj.blk.next_block{ib}.jm == 0 ...
+                        || obj.blk.next_block{ib}.jp == 0
+                    obj.blk.oblocks = ib;
+                    obj.blk.oblocks_flip = 0;
+                    break
+                end
+            end
 
+            % Construct wall blocks list and connectivity
+            nb = obj.blk.next_block{ib}.ip;
+            np = 'ip';
+            while nb ~= 0 && ~ismember(nb, obj.blk.oblocks)
+                obj.blk.oblocks(end+1) = nb;
 
+                if obj.blk.next_patch{ib}.(np) == 1
+                    obj.blk.oblocks_flip(end+1) = 0;
+                    nb = obj.blk.next_block{nb}.ip;
+                    np = 'ip';
+                else
+                    obj.blk.oblocks_flip(end+1) = 1;
+                    nb = obj.blk.next_block{nb}.im;
+                    np = 'im';
+                end
+                ib = obj.blk.oblocks(end);
+            end
+        end
 
         function slice = readSingleKSlice(obj,numslice)
             switch obj.casetype
@@ -607,7 +531,7 @@ classdef DNS_case < handle
             fclose(f);
         end
 
-        function kPlot(obj,slice,prop,ax,lims,label)
+        function s = kPlot(obj,slice,prop,ax,lims,label)
             
             if nargin < 4 || isempty(ax)
                 ax = gca;
@@ -939,7 +863,7 @@ classdef DNS_case < handle
         function value = get.ftrip(obj)
             if ~obj.iTrip
                 disp('Setting trip with default params')
-                obj.setTrip(0.1, 1, 100)
+               obj.setTrip(0.1, 1, 100)
             end
             value = cell(1,obj.NB);
             for nb = 1:obj.NB
@@ -1350,7 +1274,7 @@ classdef DNS_case < handle
         end
 
         function writeInputFiles(obj)
-            write_input_files(obj.casename,obj.blk,obj.next_block,obj.next_patch,obj.corner, ...
+            write_input_files(obj.casename,obj.blk, ...
                 obj.bcs,obj.gas,obj.solver,'topology',obj.topology,'casetype',obj.casetype);
         end
 
@@ -1592,31 +1516,50 @@ classdef DNS_case < handle
         end
 
         function regions = getIntRegions(obj)
-            xrangePreShock = [0.16 0.59];
-            xrangePostShock = [0.70 0.98];
-            xMaxWake = 1.4;
-
-            regions = {};
-            regions{1}.nb = 6;
-            [~, regions{1}.is] = min(abs(obj.blk.x{6}(:,end) - xrangePreShock(1)));
-            [~, regions{1}.ie] = min(abs(obj.blk.x{6}(:,end) - xrangePreShock(2)));
-            regions{1}.js = 1;
-            regions{1}.je = obj.blk.blockdims(6,2);
-            
-            regions{2}.nb = 6;
-            [~, regions{2}.is] = min(abs(obj.blk.x{6}(:,end) - xrangePostShock(1)));
-            [~, regions{2}.ie] = min(abs(obj.blk.x{6}(:,end) - xrangePostShock(2)));
-            regions{2}.js = 1;
-            regions{2}.je =  obj.blk.blockdims(6,2);
-            
-            regions{3}.nb = 9;
-            regions{3}.is = 1; regions{3}.ie = size(obj.blk.x{9},1);
-            regions{3}.js = 1; regions{3}.je = size(obj.blk.x{9},2);
-
-            regions{4}.nb = 10;
-            regions{4}.is = 1;
-            [~, regions{4}.ie] = min(abs(obj.blk.x{10}(:,obj.blk.blockdims(10,2)/2) - xMaxWake));
-            regions{4}.js = 1; regions{4}.je = obj.blk.blockdims(10,2);
+            switch obj.topology
+                case 2
+                    xrangePreShock = [0.16 0.59];
+                    xrangePostShock = [0.70 0.98];
+                    xMaxWake = 1.4;
+        
+                    regions = {};
+                    regions{1}.nb = 6;
+                    [~, regions{1}.is] = min(abs(obj.blk.x{6}(:,end) - xrangePreShock(1)));
+                    [~, regions{1}.ie] = min(abs(obj.blk.x{6}(:,end) - xrangePreShock(2)));
+                    regions{1}.js = 1;
+                    regions{1}.je = obj.blk.blockdims(6,2);
+                    
+                    regions{2}.nb = 6;
+                    [~, regions{2}.is] = min(abs(obj.blk.x{6}(:,end) - xrangePostShock(1)));
+                    [~, regions{2}.ie] = min(abs(obj.blk.x{6}(:,end) - xrangePostShock(2)));
+                    regions{2}.js = 1;
+                    regions{2}.je =  obj.blk.blockdims(6,2);
+                    
+                    regions{3}.nb = 9;
+                    regions{3}.is = 1; regions{3}.ie = size(obj.blk.x{9},1);
+                    regions{3}.js = 1; regions{3}.je = size(obj.blk.x{9},2);
+        
+                    regions{4}.nb = 10;
+                    regions{4}.is = 1;
+                    [~, regions{4}.ie] = min(abs(obj.blk.x{10}(:,obj.blk.blockdims(10,2)/2) - xMaxWake));
+                    regions{4}.js = 1; regions{4}.je = obj.blk.blockdims(10,2);
+                case 3
+                    xrangePreShock = [0.1 0.4];
+                    xrangePostShock = [0.6 0.9];
+        
+                    regions = {};
+                    regions{1}.nb = 1;
+                    [~, regions{1}.is] = min(abs(obj.blk.x{1}(:,1) - xrangePreShock(1)));
+                    [~, regions{1}.ie] = min(abs(obj.blk.x{1}(:,1) - xrangePreShock(2)));
+                    regions{1}.js = 1;
+                    regions{1}.je = 192;
+                    
+                    regions{2}.nb = 1;
+                    [~, regions{2}.is] = min(abs(obj.blk.x{1}(:,1) - xrangePostShock(1)));
+                    [~, regions{2}.ie] = min(abs(obj.blk.x{1}(:,1) - xrangePostShock(2)));
+                    regions{2}.js = 1;
+                    regions{2}.je =  192;
+            end
         end
 
         function interpInstFlow(obj, newcase)
@@ -1669,8 +1612,15 @@ classdef DNS_case < handle
             end
         end
 
-        function newCase = setup_new_case(obj, name, newBlk)
+        function newCase = instantiate(obj)
             newCase = DNS_case;
+        end
+
+        function newCase = setup_new_case(obj, name, newBlk, iWrite)
+            if nargin < 4
+                iWrite = false;
+            end
+            newCase = obj.instantiate;
             newCase.casename=name;
             newCase.casetype = obj.casetype;
             newCase.topology = obj.topology;
@@ -1679,19 +1629,29 @@ classdef DNS_case < handle
                 mkdir(newCase.casepath);
             end
             newCase.blk = newBlk;
-            newCase.next_block = obj.next_block;
-            newCase.next_patch = obj.next_patch;
-            newCase.corner = obj.corner;
+            fields = {'next_block', 'next_patch', 'corner'};
+            for i = 1:length(fields)
+                if ~isfield(newBlk, fields{i})
+                    newCase.blk.(fields{i}) = obj.blk.(fields{i});
+                end
+            end
             newCase.solver = obj.solver;
+            newCase.solver.nk = newBlk.nk;
             newCase.bcs = obj.bcs;
             newCase.gas = obj.gas;
-            newCase.NB = obj.NB;
+            newCase.NB = length(newBlk.x);
             newCase.trip = obj.trip;
             newCase.iTrip = obj.iTrip;
+            newCase.construct_o_blocks;
+            newCase.compute_blk_metadata;
+            newCase.casetype = obj.casetype;
 
-            newCase.writeInputFiles;
-            newCase.writeGridFiles;
+            if iWrite
+                newCase.writeInputFiles;
+                newCase.writeGridFiles;
+            end
         end
+
 
         function writeMovie(obj, slices, prop, lims, label, area)
             if nargin < 6 || isempty(area)
@@ -1747,11 +1707,15 @@ classdef DNS_case < handle
             for i=1:length(slices)
                 fprintf('Plotting slice %d/%d\n',i,length(slices))
                 if ~exist(fullfile(imgfolder,sprintf('img_%03d.png',slices(i).nSlice)),'file')
-                    switch class(slices(i))
-                        case 'kSlice'
-                            slice2kPlot(slices(i), obj.blk, prop, fullfile(imgfolder,sprintf('img_%03d.png',slices(i).nSlice)), lims, label, area, aspect);
-                        case 'jSlice'
-		                    slice2jPlot(slices(i), prop, fullfile(imgfolder, sprintf('img_%03d.png',slices(i).nSlice)), lims, label);
+                    if strcmp(prop,'overlay')
+                        slice2schlierenVortOverlay(slices(i), obj.blk, fullfile(imgfolder,sprintf('img_%03d.png',slices(i).nSlice)), area, aspect);
+                    else
+                        switch class(slices(i))
+                            case 'kSlice'
+                                slice2kPlot(slices(i), obj.blk, prop, fullfile(imgfolder,sprintf('img_%03d.png',slices(i).nSlice)), lims, label, area, aspect);
+                            case 'jSlice'
+		                        slice2jPlot(slices(i), prop, fullfile(imgfolder, sprintf('img_%03d.png',slices(i).nSlice)), lims, label);
+                        end
                     end
                 end
             end
@@ -1839,7 +1803,7 @@ classdef DNS_case < handle
                 %npath = fullfile(obj.casepath,[obj.casename '_Fluent_nodes.mat']);
             end
 
-            blkNodes = writeFluentMesh(path, obj.blk, obj.next_block, obj.next_patch, true);
+            blkNodes = writeFluentMesh(path, obj.blk, obj.blk.next_block, obj.blk.next_patch, true);
         end
 
         function blkNodes = write_Fluent_mesh(obj, fname)
@@ -1852,7 +1816,7 @@ classdef DNS_case < handle
 
             nk = 6;
             span = (nk-1)*obj.solver.span/(obj.solver.nk-1);
-            blkNodes = writeFluentMeshExtruded(path, obj.blk, obj.next_block, obj.next_patch, nk, span, true);
+            blkNodes = writeFluentMeshExtruded(path, obj.blk, obj.blk.next_block, obj.next_patch, nk, span, true);
         end
 
         function write_2d_plot3d_mesh(obj)

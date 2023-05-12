@@ -18,4 +18,11 @@ for i=1:NB
     ynew = ynew(is,js);
     plot(xnew,ynew,'k');
     plot(xnew',ynew','k');
+    plot(blk.x{i}(1,:),blk.y{i}(1,:),'r');
+    plot(blk.x{i}(end,:),blk.y{i}(end,:),'r');
+    plot(blk.x{i}(:,1),blk.y{i}(:,1),'r');
+    plot(blk.x{i}(:,end),blk.y{i}(:,end),'r');
+
+end
+axis equal
 end
