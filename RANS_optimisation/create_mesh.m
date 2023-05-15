@@ -1,4 +1,4 @@
-clear
+%clear
 close all
 profile = fullfile('..','r150_aerofoil.txt');
 
@@ -11,7 +11,7 @@ r = 1.1;
 theta = 80;
 tmid = 0.5;
 
-[xprof,yprof] = perturbed_profile(xprof,yprof,amp,x1,x2,xTrip,r,theta,tmid);
+%[xprof,yprof] = perturbed_profile(xprof,yprof,amp,x1,x2,xTrip,r,theta,tmid);
 msmooths=100;
 npp=6;
 pitch=2;
