@@ -44,7 +44,7 @@ classdef meanSlice < aveSlice
     end
 
     methods
-        function obj = meanSlice(casedir, blk, gas)
+        function obj = meanSlice(casedir, blk, gas, casetype)
             obj@aveSlice(blk, gas);
             disp('Constructing meanSlice')
             if exist(fullfile(casedir,'mean_flo','nstats.txt'),'file')
@@ -76,98 +76,149 @@ classdef meanSlice < aveSlice
                 obj.meanTime = temp(3);
                 for nb = 1:obj.NB
 
-                    flopath = fullfile(casedir, 'mean_flo',  ['mean2_' num2str(nb) '_' num2str(obj.nMean)]);
-                    flofile = fopen(flopath,'r');
-                    fullfile(casedir, 'mean_flo', ['mnod2_' num2str(nb) '_' num2str(obj.nMean)]);
-                    nodfile = fopen(fullfile(casedir, 'mean_flo', ['mnod2_' num2str(nb) '_' num2str(obj.nMean)]),'r');
-                    A = fread(flofile,inf,'float64');
-%                     fprintf('%d %d %d\n',nb, length(A), nstats)
-                    A = reshape(A,nstats,length(A)/nstats);
-                    
-                    B = fread(nodfile,inf,'uint32');
-                    B = reshape(B,3,length(B)/3);
-            
-                    fclose(flofile);
-                    fclose(nodfile);
+                    ni = blk.blockdims(nb,1);
+                    nj = blk.blockdims(nb,2);
     
-                    ro = zeros(blk.blockdims(nb,1),blk.blockdims(nb,2));
-                    ru = zeros(blk.blockdims(nb,1),blk.blockdims(nb,2));
-                    rv = zeros(blk.blockdims(nb,1),blk.blockdims(nb,2));
-                    rw = zeros(blk.blockdims(nb,1),blk.blockdims(nb,2));
-                    Et = zeros(blk.blockdims(nb,1),blk.blockdims(nb,2));
+                    ro = zeros(ni,nj);
+                    ru = zeros(ni,nj);
+                    rv = zeros(ni,nj);
+                    rw = zeros(ni,nj);
+                    Et = zeros(ni,nj);
 
-                    ro2 = zeros(blk.blockdims(nb,1),blk.blockdims(nb,2));
-                    rou2 = zeros(blk.blockdims(nb,1),blk.blockdims(nb,2));
-                    rov2 = zeros(blk.blockdims(nb,1),blk.blockdims(nb,2));
-                    row2 = zeros(blk.blockdims(nb,1),blk.blockdims(nb,2));
+                    ro2 = zeros(ni,nj);
+                    rou2 = zeros(ni,nj);
+                    rov2 = zeros(ni,nj);
+                    row2 = zeros(ni,nj);
 
-                    rouv = zeros(blk.blockdims(nb,1),blk.blockdims(nb,2));
-                    rouw = zeros(blk.blockdims(nb,1),blk.blockdims(nb,2));
-                    rovw = zeros(blk.blockdims(nb,1),blk.blockdims(nb,2));
+                    rouv = zeros(ni,nj);
+                    rouw = zeros(ni,nj);
+                    rovw = zeros(ni,nj);
 
-                    p2 = zeros(blk.blockdims(nb,1),blk.blockdims(nb,2));
-                    p = zeros(blk.blockdims(nb,1),blk.blockdims(nb,2));
-                    T = zeros(blk.blockdims(nb,1),blk.blockdims(nb,2));
-                    rous = zeros(blk.blockdims(nb,1),blk.blockdims(nb,2));
-                    rovs = zeros(blk.blockdims(nb,1),blk.blockdims(nb,2));
-                    rows = zeros(blk.blockdims(nb,1),blk.blockdims(nb,2));
-                    diss = zeros(blk.blockdims(nb,1),blk.blockdims(nb,2));
-                    qx_T = zeros(blk.blockdims(nb,1),blk.blockdims(nb,2));
-                    qy_T = zeros(blk.blockdims(nb,1),blk.blockdims(nb,2));
-                    qz_T = zeros(blk.blockdims(nb,1),blk.blockdims(nb,2));
-                    irrev_gen = zeros(blk.blockdims(nb,1),blk.blockdims(nb,2));
-                    diss_T = zeros(blk.blockdims(nb,1),blk.blockdims(nb,2));
+                    p2 = zeros(ni,nj);
+                    p = zeros(ni,nj);
+                    T = zeros(ni,nj);
+                    rous = zeros(ni,nj);
+                    rovs = zeros(ni,nj);
+                    rows = zeros(ni,nj);
+                    diss = zeros(ni,nj);
+                    qx_T = zeros(ni,nj);
+                    qy_T = zeros(ni,nj);
+                    qz_T = zeros(ni,nj);
+                    irrev_gen = zeros(ni,nj);
+                    diss_T = zeros(ni,nj);
 
                     sz = size(ro2);
                     icount(1:prod(sz)) = 0;
-                    for n=1:size(A,2)
 
-                        i = B(1,n);
-                        j = B(2,n);
-
-                        if icount(sub2ind(sz,i,j)) == 0
-
-                            icount(sub2ind(sz,i,j)) = 1;
-
-                            ro(i,j) = A(1,n)/obj.meanTime;
-                            ru(i,j) = A(2,n)/obj.meanTime;
-                            rv(i,j) = A(3,n)/obj.meanTime;
-                            rw(i,j) = A(4,n)/obj.meanTime;
-                            Et(i,j) = A(5,n)/obj.meanTime;
-    
-                            ro2(i,j) = A(6,n)/obj.meanTime;
-                            rou2(i,j) = A(7,n)/obj.meanTime;
-                            rov2(i,j) = A(8,n)/obj.meanTime;
-                            row2(i,j) = A(9,n)/obj.meanTime;
-    
-                            rouv(i,j) = A(10,n)/obj.meanTime;
-                            rouw(i,j) = A(11,n)/obj.meanTime;
-                            rovw(i,j) = A(12,n)/obj.meanTime;
-    
-                            p2(i,j) = A(13,n)/obj.meanTime;
-
-                            if statstype == 1
-                                p(i,j) = A(14,n)/obj.meanTime;
-                                T(i,j) = A(15,n)/obj.meanTime;
-                                rous(i,j) = A(16,n)/obj.meanTime;
-                            elseif statstype == 2
-                                rous(i,j) = A(14,n)/obj.meanTime;
-                                rovs(i,j) = A(15,n)/obj.meanTime;
-                                rows(i,j) = A(16,n)/obj.meanTime;
+                    switch casetype
+                        case 'cpu'
+                            flopath = fullfile(casedir, 'mean_flo',  ['mean2_' num2str(nb) '_' num2str(obj.nMean)]);
+                            flofile = fopen(flopath,'r');
+                            fullfile(casedir, 'mean_flo', ['mnod2_' num2str(nb) '_' num2str(obj.nMean)]);
+                            nodfile = fopen(fullfile(casedir, 'mean_flo', ['mnod2_' num2str(nb) '_' num2str(obj.nMean)]),'r');
+                            A = fread(flofile,inf,'float64');
+        %                     fprintf('%d %d %d\n',nb, length(A), nstats)
+                            A = reshape(A,nstats,length(A)/nstats);
+                            
+                            B = fread(nodfile,inf,'uint32');
+                            B = reshape(B,3,length(B)/3);
+                    
+                            fclose(flofile);
+                            fclose(nodfile);
+                            for n=1:size(A,2)
+        
+                                i = B(1,n);
+                                j = B(2,n);
+        
+                                if icount(sub2ind(sz,i,j)) == 0
+        
+                                    icount(sub2ind(sz,i,j)) = 1;
+        
+                                    ro(i,j) = A(1,n)/obj.meanTime;
+                                    ru(i,j) = A(2,n)/obj.meanTime;
+                                    rv(i,j) = A(3,n)/obj.meanTime;
+                                    rw(i,j) = A(4,n)/obj.meanTime;
+                                    Et(i,j) = A(5,n)/obj.meanTime;
+            
+                                    ro2(i,j) = A(6,n)/obj.meanTime;
+                                    rou2(i,j) = A(7,n)/obj.meanTime;
+                                    rov2(i,j) = A(8,n)/obj.meanTime;
+                                    row2(i,j) = A(9,n)/obj.meanTime;
+            
+                                    rouv(i,j) = A(10,n)/obj.meanTime;
+                                    rouw(i,j) = A(11,n)/obj.meanTime;
+                                    rovw(i,j) = A(12,n)/obj.meanTime;
+            
+                                    p2(i,j) = A(13,n)/obj.meanTime;
+        
+                                    if statstype == 1
+                                        p(i,j) = A(14,n)/obj.meanTime;
+                                        T(i,j) = A(15,n)/obj.meanTime;
+                                        rous(i,j) = A(16,n)/obj.meanTime;
+                                    elseif statstype == 2
+                                        rous(i,j) = A(14,n)/obj.meanTime;
+                                        rovs(i,j) = A(15,n)/obj.meanTime;
+                                        rows(i,j) = A(16,n)/obj.meanTime;
+                                    end
+        
+                                    diss(i,j) = A(17,n)/obj.meanTime;
+                                    if nstats > 17
+                                        qx_T(i,j) = A(18,n)/obj.meanTime;
+                                        qy_T(i,j) = A(19,n)/obj.meanTime;
+                                        qz_T(i,j) = A(20,n)/obj.meanTime;
+                                        irrev_gen(i,j) = A(21,n)/obj.meanTime; % Pr/(T^2*mu*cp) * Σqi*qi
+                                    end
+        
+                                    if nstats > 21
+                                        diss_T(i,j) = A(22,n)/obj.meanTime;
+                                    end
+                                end
                             end
 
-                            diss(i,j) = A(17,n)/obj.meanTime;
-                            if nstats > 17
-                                qx_T(i,j) = A(18,n)/obj.meanTime;
-                                qy_T(i,j) = A(19,n)/obj.meanTime;
-                                qz_T(i,j) = A(20,n)/obj.meanTime;
-                                irrev_gen(i,j) = A(21,n)/obj.meanTime; % Pr/(T^2*mu*cp) * Σqi*qi
-                            end
+                        case 'gpu'
+                            nstats_prim = 12;
+                            nstats_budg = 10;
+                            flopath = fullfile(casedir, 'mean_flo',  ['mean2_' num2str(nb) '_' num2str(obj.nMean)]);
+                            flofile = fopen(flopath,'r');
+                            fullfile(casedir, 'mean_flo', ['mnod2_' num2str(nb) '_' num2str(obj.nMean)]);
+                            A = fread(flofile,ni*nj*nstats,'float64');
+        %                     fprintf('%d %d %d\n',nb, length(A), nstats)
+                            prim = reshape(A(1:ni*nj*nstats_prim),nstats_prim,[])';%length(A)/25)';
+                            budg = reshape(A(ni*nj*nstats_prim+1:end),nstats_budg,[])';
+                            
+                            fclose(flofile);
 
-                            if nstats > 21
-                                diss_T(i,j) = A(22,n)/obj.meanTime;
-                            end
-                        end
+        
+                            ro = reshape(prim(:,1),ni,nj)/obj.meanTime;
+                            ru = reshape(prim(:,2),ni,nj)/obj.meanTime;
+                            rv = reshape(prim(:,3),ni,nj)/obj.meanTime;
+                            rw = reshape(prim(:,4),ni,nj)/obj.meanTime;
+                            Et = reshape(prim(:,5),ni,nj)/obj.meanTime;
+    
+                            ro2 = reshape(prim(:,6),ni,nj)/obj.meanTime;
+                            rou2 = reshape(prim(:,7),ni,nj)/obj.meanTime;
+                            rov2 = reshape(prim(:,8),ni,nj)/obj.meanTime;
+                            row2 = reshape(prim(:,9),ni,nj)/obj.meanTime;
+    
+                            rouv = reshape(prim(:,10),ni,nj)/obj.meanTime;
+                            rouw = reshape(prim(:,11),ni,nj)/obj.meanTime;
+                            rovw = reshape(prim(:,12),ni,nj)/obj.meanTime;
+    
+                            p2 = reshape(budg(:,1),ni,nj)/obj.meanTime;
+
+                            rous = reshape(budg(:,2),ni,nj)/obj.meanTime;
+                            rovs = reshape(budg(:,3),ni,nj)/obj.meanTime;
+                            rows = reshape(budg(:,4),ni,nj)/obj.meanTime;
+                            
+                            diss = reshape(budg(:,5),ni,nj)/obj.meanTime;
+                            
+                            qx_T = reshape(budg(:,6),ni,nj)/obj.meanTime;
+                            qy_T = reshape(budg(:,7),ni,nj)/obj.meanTime;
+                            qz_T = reshape(budg(:,8),ni,nj)/obj.meanTime;
+                            
+                            irrev_gen = reshape(budg(:,9),ni,nj)/obj.meanTime; % Pr/(T^2*mu*cp) * Σqi*qi
+                            diss_T = reshape(budg(:,10),ni,nj)/obj.meanTime;
+                        
                     end
 
                     u = ru./ro;
@@ -228,7 +279,7 @@ classdef meanSlice < aveSlice
                 
             end
             obj.span = blk.span;
-            obj.nk = blk.nk{1};
+            obj.nk = blk.nk;
             obj.getBCs(blk.inlet_blocks{1});
 %             Mnow = obj.M;
 %             Unow = obj.vel;

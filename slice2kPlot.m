@@ -13,6 +13,9 @@ function slice2kPlot(slice, blk, prop, fpath, lims, label, area, aspect)
     pbaspect(aspect)
     axis(area)
     axis off
+    if ismember(string(prop),["vortZ","v","w"])
+        colormap(redblue)
+    end
     cb = colorbar(ax);
     if nargin > 4 && ~isempty(lims)
         caxis(lims);

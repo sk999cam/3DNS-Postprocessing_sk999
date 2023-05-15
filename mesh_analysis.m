@@ -7,7 +7,11 @@ temp_slash = '/'; if ispc, temp_slash = '\'; end
 C = colororder;
 
 NB = length(blk.x);
-npp = blk.npp;
+try
+    npp = blk.npp;
+catch
+    npp = 1;
+end
 
 nij_pts = 0;
 figure(1)

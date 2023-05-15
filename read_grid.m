@@ -17,6 +17,6 @@ function [blk, blocks] = read_grid(case_name)
         grid = readmatrix(fullfile(path, ['grid_' num2str(i) '.txt']));
         blk.x{i} = reshape(grid(:,1),[ni,nj]);
         blk.y{i} = reshape(grid(:,2),[ni,nj]);
-        blk.nk{i} = nk;
     end
+    blk.nk = nk;
 end

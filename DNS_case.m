@@ -1653,6 +1653,43 @@ classdef DNS_case < handle
         end
 
 
+        function newCase = setup_new_case(obj, name, newBlk, iWrite)
+            if nargin < 4
+                iWrite = false;
+            end
+            newCase = obj.instantiate;
+            newCase.casename=name;
+            newCase.casetype = obj.casetype;
+            newCase.topology = obj.topology;
+            newCase.casepath = fullfile(fileparts(obj.casepath), name);
+            if ~exist(newCase.casepath,'dir')
+                mkdir(newCase.casepath);
+            end
+            newCase.blk = newBlk;
+            fields = {'next_block', 'next_patch', 'corner'};
+            for i = 1:length(fields)
+                if ~isfield(newBlk, fields{i})
+                    newCase.blk.(fields{i}) = obj.blk.(fields{i});
+                end
+            end
+            newCase.solver = obj.solver;
+            newCase.solver.nk = newBlk.nk;
+            newCase.bcs = obj.bcs;
+            newCase.gas = obj.gas;
+            newCase.NB = length(newBlk.x);
+            newCase.trip = obj.trip;
+            newCase.iTrip = obj.iTrip;
+            newCase.construct_o_blocks;
+            newCase.compute_blk_metadata;
+            newCase.casetype = obj.casetype;
+
+            if iWrite
+                newCase.writeInputFiles;
+                newCase.writeGridFiles;
+            end
+        end
+
+
         function writeMovie(obj, slices, prop, lims, label, area, name)
             if nargin < 6 || isempty(area)
                 area = obj.blk.viewarea;

@@ -79,12 +79,23 @@ classdef aveSlice < kCut
             roinf = [];
             Tinf = [];
             for i=1:length(inlet_blocks)
+                nj = obj.blk.blockdims(inlet_blocks(i),2);
+                js = 1:nj;
+                if obj.blk.next_patch{inlet_blocks(i)}.jm == 3
+                    inds = obj.BLedgeInd;
+                    ind = max(inds(is));
+                    js = floor(1.2*ind):nj;
+                elseif obj.blk.next_patch{inlet_blocks(i)}.jp == 3
+                    inds = obj.BLedgeInd;
+                    ind = max(inds(is));
+                    js = (nj-floor(1.2*ind)):nj;
+                end
                 p0now = pnow{inlet_blocks(i)}.*(1+((obj.gas.gam - 1)/2)*Mnow{inlet_blocks(i)}.^2).^(obj.gas.gam/(obj.gas.gam-1));
-                p0 = [p0 p0now(is,:)];
-                Tinf = [Tinf Tnow{inlet_blocks(i)}(is,:)];
-                Uinf = [Uinf Unow{inlet_blocks(i)}(is,:)];
-                muinf = [muinf munow{inlet_blocks(i)}(is,:)];
-                roinf = [roinf ronow{inlet_blocks(i)}(is,:)];
+                p0 = [p0 p0now(is,js)];
+                Tinf = [Tinf Tnow{inlet_blocks(i)}(is,js)];
+                Uinf = [Uinf Unow{inlet_blocks(i)}(is,js)];
+                muinf = [muinf munow{inlet_blocks(i)}(is,js)];
+                roinf = [roinf ronow{inlet_blocks(i)}(is,js)];
             end
             obj.p0in = mean(p0,'all');
             obj.Tinf = mean(Tinf, 'all');
