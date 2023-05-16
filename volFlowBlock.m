@@ -24,7 +24,7 @@ classdef volFlowBlock
         nk;
         span;
         z;
-        Q;              % Q Criterion
+        Qstore;
     end
 
     properties (Dependent = true)
@@ -35,6 +35,7 @@ classdef volFlowBlock
         vel;            % Velocity
         Msurf;          % Surface Mach No
         MSlice;
+        Q;              % Q criterion
         
     end
 
@@ -133,15 +134,15 @@ classdef volFlowBlock
         end
 
         function value = get.Q(obj)
-            if ~isempty(obj.Q)
-                value = obj.Q;
+            if ~isempty(obj.Qstore)
+                value = obj.Qstore;
             else
                 value = cell(1,obj.NB);
                 for nb = obj.blk.oblocks
                     fprintf('Calculating Q criterion in block %d\n',obj.ib)
                     value = Q_criterion(obj.blk.x, obj.blk.y, obj.blk.z, obj.u, obj.v, obj.w);
                 end
-                obj.Q = value;
+                obj.Qstore = value;
             end
         end
 
@@ -304,7 +305,7 @@ classdef volFlowBlock
 
         function writeFlow(obj, path, casetype)
             if nargin < 3
-                casetype = 'cpu'
+                casetype = 'cpu';
             end
             fprintf('Writing flow in block %d\n',obj.ib)
 

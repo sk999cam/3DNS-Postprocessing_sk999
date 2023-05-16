@@ -1,4 +1,7 @@
-function slice2schlierenVortOverlay(slice, blk, fpath, area, aspect)
+function slice2schlierenVortOverlay(slice, blk, fpath, lims, area, aspect)
+    if length(lims) == 1
+        lims = abs(lims)*[-1 1];
+    end
     h = figure('Visible','off');
     ax1 = axes(h);
     q1 = slice.schlieren;
@@ -20,7 +23,7 @@ function slice2schlierenVortOverlay(slice, blk, fpath, area, aspect)
 
     q2 = slice.vortZ;
     pcolor(ax2, blk.x{1}, blk.y{1}, q2{1});
-    caxis(5e4*[-1 1]);
+    caxis(lims);
     shading interp
     axis equal
     pbaspect(ax2,aspect);

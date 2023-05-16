@@ -1653,6 +1653,7 @@ classdef DNS_case < handle
         end
 
 
+<<<<<<< Updated upstream
         function newCase = setup_new_case(obj, name, newBlk, iWrite)
             if nargin < 4
                 iWrite = false;
@@ -1690,6 +1691,8 @@ classdef DNS_case < handle
         end
 
 
+=======
+>>>>>>> Stashed changes
         function writeMovie(obj, slices, prop, lims, label, area, name)
             if nargin < 6 || isempty(area)
                 area = obj.blk.viewarea;

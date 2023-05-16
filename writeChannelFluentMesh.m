@@ -1,5 +1,8 @@
 function blkNodes = writeChannelFluentMesh(blk, path, nk, span, iWrite)
 
+    % path: path (including file name) to save mesh: put iWrite = true to write mesh.
+    % nk, span optional for spanwise extruded 3D mesh
+
     if nargin < 5
         iWrite = true;
     end
@@ -7,6 +10,8 @@ function blkNodes = writeChannelFluentMesh(blk, path, nk, span, iWrite)
     if nargin < 3 || isempty(nk)
         span = 0;
         nk = 1;
+    else
+        span = abs(span);
     end
 
     nkm1 = max(1,nk-1);
@@ -182,6 +187,10 @@ function blkNodes = writeChannelFluentMesh(blk, path, nk, span, iWrite)
                     faces(n).n3 = nodes(i,j+1,k+1);
                     faces(n).n4 = nodes(i,j,k+1);
                 end
+                if nk > 1
+                    faces(n).cl = mcells(1,j,k);
+                    faces(n).cr = pcells(1,j,k);
+                end
                 if faces(n).bc == 0
                     faces(n).bc = 2;
                 end
@@ -213,6 +222,8 @@ function blkNodes = writeChannelFluentMesh(blk, path, nk, span, iWrite)
                 if nk > 1
                     faces(n).n3 = nodes(i+1,j,k+1);
                     faces(n).n4 = nodes(i,j,k+1);
+                    faces(n).cl = mcells(i,1,k);
+                    faces(n).cr = pcells(i,1,k);
                 end
                 if faces(n).bc == 0
                     faces(n).bc = 2;
@@ -229,12 +240,12 @@ function blkNodes = writeChannelFluentMesh(blk, path, nk, span, iWrite)
             pcells = zeros(ni-1, nj-1, 1);
     
             if k==1
-                mcells = cells(:,:,k);
+                pcells = cells(:,:,k);
             elseif k == nk
-                pcells = cells(:,:,k-1);
+                mcells = cells(:,:,k-1);
             else
-                mcells = cells(:, :, k);
-                pcells = cells(:, :, k-1);
+                mcells = cells(:, :, k-1);
+                pcells = cells(:, :, k);
             end
             for i=1:ni-1
                 for j=1:nj-1
@@ -243,8 +254,8 @@ function blkNodes = writeChannelFluentMesh(blk, path, nk, span, iWrite)
                     faces(n).n2 = nodes(i+1,j,k);
                     faces(n).n3 = nodes(i+1,j+1,k);
                     faces(n).n4 = nodes(i,j+1,k);
-                    faces(n).cr = mcells(i,j,1);
-                    faces(n).cl = pcells(i,j,1);
+                    faces(n).cl = mcells(i,j,1);
+                    faces(n).cr = pcells(i,j,1);
                     if faces(n).bc == 0
                         faces(n).bc = 2;
                     end
@@ -282,13 +293,15 @@ function blkNodes = writeChannelFluentMesh(blk, path, nk, span, iWrite)
             fprintf(fid,'(12 (7 1 %X 1 3))\n',ncells);
             fprintf(fid, '\n');
         
-            fprintf(fid,'(0 "Interior:")\n');
-            fprintf(fid,'(13 (2 %X %X %X 2)(\n', [interior_faces(1) interior_faces(2) 2]);
-            for n=(outlet_faces(2)+1):length(faces)
-                fprintf(fid,'%X %X %X %X\n',[faces(n).n1 faces(n).n2 faces(n).cr faces(n).cl]);
+            if interior_faces(2) >- interior_faces(1)
+                fprintf(fid,'(0 "Interior:")\n');
+                fprintf(fid,'(13 (2 %X %X %X 2)(\n', [interior_faces(1) interior_faces(2) 2]);
+                for n=interior_faces(1):interior_faces(2)
+                    fprintf(fid,'%X %X %X %X\n',[faces(n).n1 faces(n).n2 faces(n).cr faces(n).cl]);
+                end
+                fprintf(fid, '))\n');
+                fprintf(fid, '\n');
             end
-            fprintf(fid, '))\n');
-            fprintf(fid, '\n');
         
             fprintf(fid,'(0 "Inlet:")\n');
             fprintf(fid,'(13 (3 %X %X %X 2)(\n', [inlet_faces(1) inlet_faces(2) 4]);
@@ -340,7 +353,7 @@ function blkNodes = writeChannelFluentMesh(blk, path, nk, span, iWrite)
             fprintf(fid,'\n');
 
             fprintf(fid,'(0 "Cells:")\n');
-            fprintf(fid,'(12 (0 %X %X 0))\n',[1 (ncells-1)]);
+            fprintf(fid,'(12 (0 %X %X 0))\n',[1 (ncells)]);
             fprintf(fid, '\n');
 
             fprintf(fid,'(0 "Faces:")\n');
@@ -348,22 +361,25 @@ function blkNodes = writeChannelFluentMesh(blk, path, nk, span, iWrite)
             fprintf(fid, '\n');
         
             fprintf(fid,'(0 "Nodes:")\n');
-            fprintf(fid,'(10 (0 %X %X 0 3))\n',[1 length(nodes)]);
+            fprintf(fid,'(10 (0 %X %X 0 3))\n',[1 length(nodelist)]);
             fprintf(fid, '\n');
             
-            fprintf(fid,'(12 (9 1 %X 1 4))\n',ncells-1);
+            fprintf(fid,'(12 (9 1 %X 1 4))\n',ncells);
             fprintf(fid, '\n');
-%%
 
             fprintf('Writing faces\n')
-            fprintf(fid,'(0 "Interior:")\n');
-            fprintf(fid,'(13 (2 %X %X %X 4)(\n', [interior_faces(1) interior_faces(2) 2]);
-            for n=(outlet_faces(2)+1):length(faces)
-                fprintf(fid,'%X %X %X %X %X %X\n',[faces(n).n1 faces(n).n2 ...
-                    faces(n).n3 faces(n).n4 faces(n).cr faces(n).cl]);
+
+            if interior_faces(2) >= interior_faces(1)
+
+                fprintf(fid,'(0 "Interior:")\n');
+                fprintf(fid,'(13 (2 %X %X %X 4)(\n', [interior_faces(1) interior_faces(2) 2]);
+                for n=(zp_faces(2)+1):length(faces)
+                    fprintf(fid,'%X %X %X %X %X %X\n',[faces(n).n1 faces(n).n2 ...
+                        faces(n).n3 faces(n).n4 faces(n).cr faces(n).cl]);
+                end
+                fprintf(fid, '))\n');
+                fprintf(fid, '\n');
             end
-            fprintf(fid, '))\n');
-            fprintf(fid, '\n');
         
             fprintf(fid,'(0 "Inlet:")\n');
             fprintf(fid,'(13 (3 %X %X %X 4)(\n', [inlet_faces(1) inlet_faces(2) 4]);
@@ -403,7 +419,7 @@ function blkNodes = writeChannelFluentMesh(blk, path, nk, span, iWrite)
 
             fprintf(fid,'(0 "z=0:")\n');
             fprintf(fid,'(13 (7 %X %X %X 4)(\n', [zm_faces(1) zm_faces(2) 3]);
-            for n=wall_faces(1):wall_faces(2)
+            for n=zm_faces(1):zm_faces(2)
                 fprintf(fid,'%X %X %X %X %X %X\n',[faces(n).n1 faces(n).n2 ...
                     faces(n).n3 faces(n).n4 faces(n).cr faces(n).cl]);
             end
@@ -412,7 +428,7 @@ function blkNodes = writeChannelFluentMesh(blk, path, nk, span, iWrite)
 
             fprintf(fid,'(0 "z=span:")\n');
             fprintf(fid,'(13 (8 %X %X %X 4)(\n', [zp_faces(1) zp_faces(2) 3]);
-            for n=wall_faces(1):wall_faces(2)
+            for n=zp_faces(1):zp_faces(2)
                 fprintf(fid,'%X %X %X %X %X %X\n',[faces(n).n1 faces(n).n2 ...
                     faces(n).n3 faces(n).n4 faces(n).cr faces(n).cl]);
             end

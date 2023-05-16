@@ -138,6 +138,17 @@ classdef volFlow
             end
         end
 
+        function newFlow = copySkeleton(obj)
+            newFlow = volFlow;
+            newFlow.NB = obj.NB;
+            newFlow.gas = obj.gas;
+            newFlow.blk = obj.blk;
+            newFlow.gam = obj.gam;
+            newFlow.cp = obj.cp;
+            newFlow.rgas = obj.rgas;
+            newFlow.time = obj.time;
+        end
+
         function value = get.p(obj)
             value = cell(1,obj.NB);
             for nb =1:obj.NB
@@ -439,6 +450,29 @@ classdef volFlow
             end
         end 
 
+        function newFlow = sub_sample_block(obj, block, varargin)
+            p = inputParser;
+            addRequired(p,'block');
+            addOptional(p,'factor',1);
+            addOptional(p,'dims');
+
+            newFlow = obj.copySkeleton;
+            newFlow.NB = 1;
+            parse(p, block, varargin{:});
+            ib = p.Results.block;
+            factor = p.Results.factor;
+            
+            is = downsample(1:obj.blk.blockdims(ib,1),factor);
+            js = downsample(1:obj.blk.blockdims(ib,2),factor);
+            ks = downsample(1:obj.blk.blockdims(ib,3),factor);
+
+
+            blk = obj.blk;
+            blk.x = ob
+
+            
+
+        end
         
     end
     methods (Static)
