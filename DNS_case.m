@@ -156,8 +156,10 @@ classdef DNS_case < handle
         function construct_o_blocks(obj)
             % Find first wall block, assume flow im -> ip
             for ib = 1:obj.NB
-                if obj.blk.next_block{ib}.jm == 0 ...
-                        || obj.blk.next_block{ib}.jp == 0
+                if (obj.blk.next_block{ib}.jm == 0 ...
+                        && obj.blk.next_patch{ib}.jm == 3) || ...
+                    (obj.blk.next_block{ib}.jp == 0 ...
+                        && obj.blk.next_patch{ib}.jp == 3)
                     obj.blk.oblocks = ib;
                     obj.blk.oblocks_flip = 0;
                     break
@@ -278,11 +280,11 @@ classdef DNS_case < handle
             if exist("slicenums",'var')
                 if length(slicenums) == 1
                     slicenums2read = slicenums2read(end-slicenums+1:end);
-                    paths2read = paths2read{end-slicenums+1:end};
+                    paths2read = paths2read(end-slicenums+1:end);
                     time2read = time2read(end-slicenums+1:end);
                 else
                     slicenums2read = slicenums2read(slicenums);
-                    paths2read = paths2read{slicenums};
+                    paths2read = paths2read(slicenums);
                     time2read = time2read(slicenums);
                 end
             end
@@ -378,7 +380,7 @@ classdef DNS_case < handle
             regions = obj.getIntRegions;
             for ir = 1:length(obj.run)
                 fprintf('Reading meanSlice %d/%d (run %d)\n', [ir length(obj.run) obj.run(ir)])
-                mF = meanSlice(obj.runpaths{ir},obj.blk,obj.gas);
+                mF = meanSlice(obj.runpaths{ir},obj.blk,obj.gas, obj.casetype);
                 if ir == 1
                     obj.meanFlow = mF;
                     if calc_s_unst
@@ -1652,47 +1654,6 @@ classdef DNS_case < handle
             end
         end
 
-
-<<<<<<< Updated upstream
-        function newCase = setup_new_case(obj, name, newBlk, iWrite)
-            if nargin < 4
-                iWrite = false;
-            end
-            newCase = obj.instantiate;
-            newCase.casename=name;
-            newCase.casetype = obj.casetype;
-            newCase.topology = obj.topology;
-            newCase.casepath = fullfile(fileparts(obj.casepath), name);
-            if ~exist(newCase.casepath,'dir')
-                mkdir(newCase.casepath);
-            end
-            newCase.blk = newBlk;
-            fields = {'next_block', 'next_patch', 'corner'};
-            for i = 1:length(fields)
-                if ~isfield(newBlk, fields{i})
-                    newCase.blk.(fields{i}) = obj.blk.(fields{i});
-                end
-            end
-            newCase.solver = obj.solver;
-            newCase.solver.nk = newBlk.nk;
-            newCase.bcs = obj.bcs;
-            newCase.gas = obj.gas;
-            newCase.NB = length(newBlk.x);
-            newCase.trip = obj.trip;
-            newCase.iTrip = obj.iTrip;
-            newCase.construct_o_blocks;
-            newCase.compute_blk_metadata;
-            newCase.casetype = obj.casetype;
-
-            if iWrite
-                newCase.writeInputFiles;
-                newCase.writeGridFiles;
-            end
-        end
-
-
-=======
->>>>>>> Stashed changes
         function writeMovie(obj, slices, prop, lims, label, area, name)
             if nargin < 6 || isempty(area)
                 area = obj.blk.viewarea;

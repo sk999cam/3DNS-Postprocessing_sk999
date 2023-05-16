@@ -12,6 +12,7 @@ classdef aveSlice < kCut
         dsdyThresh = -50;
         use_unsflo = false;
         blEdgeMode;
+        iSmoothBL =  false;
     end
 
     properties (Dependent = true)
@@ -23,9 +24,9 @@ classdef aveSlice < kCut
         H;              % Shape factor
         H_k;            % Kinematic shape factor
         H_ke;           % K.E. shape factor = thetaStar/theta
-        H_rho;           % Density shape factor H** = delta**/theta
+        H_rho;          % Density shape factor H** = delta**/theta
         H1;             
-        %delta99;        % BL thickness
+        %delta99;       % BL thickness
         %delta99_unsflo;
         delta;          % Approx BL thickness
         delStar;        % Displacemnt thickness
@@ -81,11 +82,13 @@ classdef aveSlice < kCut
             for i=1:length(inlet_blocks)
                 nj = obj.blk.blockdims(inlet_blocks(i),2);
                 js = 1:nj;
-                if obj.blk.next_patch{inlet_blocks(i)}.jm == 3
+                if obj.blk.next_patch{inlet_blocks(i)}.jm == 3 && ...
+                        obj.blk.next_block{inlet_blocks(i)}.jm == 0
                     inds = obj.BLedgeInd;
                     ind = max(inds(is));
                     js = floor(1.2*ind):nj;
-                elseif obj.blk.next_patch{inlet_blocks(i)}.jp == 3
+                elseif obj.blk.next_patch{inlet_blocks(i)}.jp == 3 && ...
+                        obj.blk.next_block{inlet_blocks(i)}.jp == 0
                     inds = obj.BLedgeInd;
                     ind = max(inds(is));
                     js = (nj-floor(1.2*ind)):nj;
@@ -103,6 +106,31 @@ classdef aveSlice < kCut
             obj.muinf = mean(muinf,'all');
             obj.roinf = mean(roinf,'all');
             obj.T0in = obj.Tinf+obj.Uinf^2/(2*obj.gas.cp);
+        end
+
+        function value = smooth_bl_edge(obj, x, y, xSafe)
+
+            if nargin < 4
+                xSafe = 0.25;
+            end
+            ilast = obj.x2ind(xSafe);
+            points2sample = zeros(size(x));
+
+            for i = ilast:length(x)
+                if abs((y(i)-y(ilast))/y(ilast)) > 0.2
+                    points2sample(i) = true;
+                else
+                    ilast = i;
+                end
+            end
+
+            %points2sample = abs(diff(y)./y(1:end-1))>0.1;
+            ytmp = y(~points2sample);
+            xtmp = x(~points2sample);
+            for i = find(points2sample)
+                y(i) = round(interp1(xtmp,ytmp,x(i),'linear'));
+            end
+            value = y;
         end
 
         function value = get.dsdy(obj)
@@ -191,7 +219,9 @@ classdef aveSlice < kCut
                         %value(i) = min(size(temp,2), indnow+1);
                     end
             end
-
+            if obj.iSmoothBL
+                value = obj.smooth_bl_edge(obj.xSurf,value);
+            end
         end
 
         function [xedge, yedge] = getBLedgeCoords(obj,mode)

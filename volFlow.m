@@ -468,7 +468,7 @@ classdef volFlow
 
 
             blk = obj.blk;
-            blk.x = ob
+            blk.x = ob;
 
             
 
