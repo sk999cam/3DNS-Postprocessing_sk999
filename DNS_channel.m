@@ -7,6 +7,10 @@ classdef DNS_channel < DNS_case
         nbj;
     end
 
+    properties (Dependent = true)
+        %Re_theta_in
+    end
+
     methods
         function obj = DNS_channel(casename,run)
             %DNS_CHANNEL Construct an instance of this class
@@ -127,6 +131,7 @@ classdef DNS_channel < DNS_case
         function newCase = instantiate(obj)
             newCase = DNS_channel;
         end
+
 
 
 

@@ -46,6 +46,8 @@ classdef aveSlice < kCut
         cf;
         ctau;
         Re_theta;
+        iPS;
+        Re_theta_ps;
         pdyn            % Dynamic pressure, 0.5*rho*V^2
         nu_e            % Boundary layer edge viscosity
 
@@ -235,7 +237,22 @@ classdef aveSlice < kCut
             end
         end
 
-        
+        function value = get.iPS(obj)
+            x = obj.xSurf;
+            M = smooth(obj.Msurf);
+            pr = smooth(obj.blPr);
+
+            i = length(x);
+            while M(i) < 1.02
+                i = i-1;
+            end
+            prLast = inf;
+            while pr(i) < prLast
+                prLast = pr(i);
+                i = i-1;
+            end
+            value = i;
+        end
 
         function value = delta99_unsflo(obj)
             %inds = obj.BLedgeInd;

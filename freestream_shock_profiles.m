@@ -1,4 +1,4 @@
-function [x, ro, u, Et, p] = freestream_shock_profiles(Min, blk, gas, bcs, xShock, Lshock)
+function [x, ro, u, Et, p, M] = freestream_shock_profiles(Min, blk, gas, bcs, xShock, Lshock)
 
     if nargin < 5
         xShock = 0.5;
@@ -33,5 +33,7 @@ function [x, ro, u, Et, p] = freestream_shock_profiles(Min, blk, gas, bcs, xShoc
     ro = 0.5*((roin + ros) - (roin-ros)*shfn);
     Et = 0.5*((Etin+Ets) - (Etin-Ets)*shfn);
     p = (gam-1)*(Et - 0.5*ro.*u.^2);
+    T = (Et./ro - u.^2/2)*gam/cp;
+    M = u./sqrt(gam*rgas*T);
 
 end
