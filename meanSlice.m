@@ -44,28 +44,35 @@ classdef meanSlice < aveSlice
     end
 
     methods
-        function obj = meanSlice(casedir, blk, gas, casetype)
-            obj@aveSlice(blk, gas);
+        function obj = meanSlice(casedir, blk, gas, bcs, casetype, ishere)
+            obj@aveSlice(blk, gas, bcs);
             disp('Constructing meanSlice')
-            if exist(fullfile(casedir,'mean_flo','nstats.txt'),'file')
-                fid = fopen(fullfile(casedir,'mean_flo','nstats.txt'));
-                nstats = str2double(fgetl(fid));
-                statstype = str2double(fgetl(fid));
-                fclose(fid);
-            else
-                nstats = 17;
-                statstype = 1;
-            end
-            nstats;
-            if isnan(statstype)
-                statstype = 2;
-            end
 
 
             if nargin > 0
 
-                fullfile(casedir, 'mean_flo', 'mean_time.txt')
-                fid = fopen(fullfile(casedir, 'mean_flo', 'mean_time.txt'));
+                if ishere
+                    basedir = casedir;
+                else
+                    basedir = fullfile(casedir, 'mean_flo');
+                end
+                fullfile(basedir, 'mean_time.txt')
+
+                if exist(fullfile(basedir,'nstats.txt'),'file')
+                    fid = fopen(fullfile(basedir,'nstats.txt'));
+                    nstats = str2double(fgetl(fid));
+                    statstype = str2double(fgetl(fid));
+                    fclose(fid);
+                else
+                    nstats = 17;
+                    statstype = 1;
+                end
+                nstats;
+                if isnan(statstype)
+                    statstype = 2;
+                end
+
+                fid = fopen(fullfile(basedir, 'mean_time.txt'),'r');
                 while ~feof(fid) % Use lastest mean files
                     temp=fgetl(fid);
                 end
@@ -112,10 +119,10 @@ classdef meanSlice < aveSlice
 
                     switch casetype
                         case 'cpu'
-                            flopath = fullfile(casedir, 'mean_flo',  ['mean2_' num2str(nb) '_' num2str(obj.nMean)]);
+                            flopath = fullfile(basedir,  ['mean2_' num2str(nb) '_' num2str(obj.nMean)]);
                             flofile = fopen(flopath,'r');
-                            fullfile(casedir, 'mean_flo', ['mnod2_' num2str(nb) '_' num2str(obj.nMean)]);
-                            nodfile = fopen(fullfile(casedir, 'mean_flo', ['mnod2_' num2str(nb) '_' num2str(obj.nMean)]),'r');
+                            fullfile(basedir, ['mnod2_' num2str(nb) '_' num2str(obj.nMean)]);
+                            nodfile = fopen(fullfile(basedir, ['mnod2_' num2str(nb) '_' num2str(obj.nMean)]),'r');
                             A = fread(flofile,inf,'float64');
         %                     fprintf('%d %d %d\n',nb, length(A), nstats)
                             A = reshape(A,nstats,length(A)/nstats);
@@ -178,9 +185,9 @@ classdef meanSlice < aveSlice
                         case 'gpu'
                             nstats_prim = 12;
                             nstats_budg = 10;
-                            flopath = fullfile(casedir, 'mean_flo',  ['mean2_' num2str(nb) '_' num2str(obj.nMean)]);
+                            flopath = fullfile(basedir,  ['mean2_' num2str(nb) '_' num2str(obj.nMean)]);
                             flofile = fopen(flopath,'r');
-                            fullfile(casedir, 'mean_flo', ['mnod2_' num2str(nb) '_' num2str(obj.nMean)]);
+                            fullfile(basedir, ['mnod2_' num2str(nb) '_' num2str(obj.nMean)]);
                             A = fread(flofile,ni*nj*nstats,'float64');
         %                     fprintf('%d %d %d\n',nb, length(A), nstats)
                             prim = reshape(A(1:ni*nj*nstats_prim),nstats_prim,[])';%length(A)/25)';

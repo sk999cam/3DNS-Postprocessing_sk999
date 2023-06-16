@@ -55,8 +55,8 @@ classdef aveSlice < kCut
     end
 
     methods
-        function obj = aveSlice(blk, gas)
-            obj@kCut(blk, gas);
+        function obj = aveSlice(blk, gas, bcs)
+            obj@kCut(blk, gas, bcs);
             disp('Constructing aveSlice')
         end
 
@@ -484,6 +484,10 @@ classdef aveSlice < kCut
                 ylim(lims);
             end
             disp('')
+        end
+
+        function plt = plot_y_profile(obj, prop, iNorm)
+
         end
 
         function [locus_line, eq_line] = plot_H_Pr_locus(obj, ax, ploteq, xrange, fmt, lineColour)

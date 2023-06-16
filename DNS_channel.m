@@ -1,5 +1,5 @@
 classdef DNS_channel < DNS_case
-    %DNS_CHANNEL Subclass of DNS_case contaning methods and properties
+    DNS_CHANNEL Subclass of DNS_case contaning methods and properties
     ... specific to channel flow cases
 
     properties
@@ -8,13 +8,13 @@ classdef DNS_channel < DNS_case
     end
 
     properties (Dependent = true)
-        %Re_theta_in
+        Re_theta_in
     end
 
     methods
         function obj = DNS_channel(casename,run)
-            %DNS_CHANNEL Construct an instance of this class
-            %   Detailed explanation goes here
+            DNS_CHANNEL Construct an instance of this class
+              Detailed explanation goes here
             args.topology = 3;
             if nargin > 0
                 if nargin < 2

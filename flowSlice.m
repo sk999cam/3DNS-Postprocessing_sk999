@@ -4,6 +4,7 @@ classdef flowSlice < handle
     properties
         NB;
         gas;
+        bcs;
         ro;
         u;
         v;
@@ -36,6 +37,7 @@ classdef flowSlice < handle
         StR;            % Strain rate magnitude
         M;              % Mach No
         s;              % Entropy ( cp*log(T/300) - R*log(p/1e5) )
+        ros;            % Entropy per unit volume
         vel;            % Velocity
         mu;             % Viscosity
         nu;             % Kinematic viscosity
@@ -51,11 +53,12 @@ classdef flowSlice < handle
     end
 
     methods
-        function obj = flowSlice(blk, gas)
+        function obj = flowSlice(blk, gas, bcs)
             %FLOWSLICE Construct a flowSlice object
             disp('Constructing flowSlice')
 
             obj.gas = gas;
+            obj.bcs = bcs;
             obj.NB = size(blk.blockdims,1);
             obj.blk = blk;
         end         % End of constructor
@@ -81,6 +84,14 @@ classdef flowSlice < handle
 
         function obj = set.T(obj, value)
             obj.set_T(value);
+        end
+
+        function value = get.ros(obj)
+            value = obj.get_ros;
+        end
+
+        function obj = set.ros(obj, value)
+            obj.set_ros(value)
         end
 
         function value = get.mut(obj)
@@ -111,6 +122,9 @@ classdef flowSlice < handle
         function set_StR(obj,value)
         end
 
+        function set_ros(obj,value)
+        end
+
         function value = get_StR(obj)
             value = cell(1,obj.NB);
             for nb =1:obj.NB
@@ -128,6 +142,17 @@ classdef flowSlice < handle
             value = cell(1,obj.NB);
             for nb =1:obj.NB
                 value{nb} = obj.p{nb}./(obj.ro{nb}*obj.gas.rgas);
+            end
+        end
+
+
+        function value = get_ros(obj)
+            value = cell(1,obj.NB);
+            Tnow = obj.T;
+            pnow = obj.p;
+            for nb = 1:obj.NB
+                value{nb} = obj.ro{nb}.*(obj.gas.cp*log(Tnow{nb}/obj.bcs.Toin) - ...
+                    obj.gas.cp*(1-1/obj.gas.gam)*log(pnow{nb}/obj.bcs.Poin));
             end
         end
 
@@ -173,7 +198,7 @@ classdef flowSlice < handle
             for nb = 1:obj.NB
                 pnow = (obj.gas.gam - 1)*(obj.Et{nb} - 0.5*(obj.u{nb}.^2 + obj.v{nb}.^2 + obj.w{nb}.^2).*obj.ro{nb});
                 Tnow = pnow./(obj.ro{nb}*obj.gas.rgas);
-                value{nb} = obj.gas.cp*log(Tnow/300) - obj.gas.rgas*log(pnow/1e5);
+                value{nb} = obj.gas.cp*log(Tnow/obj.bcs.Toin) - obj.gas.rgas*log(pnow/obj.bcs.Poin);
             end
         end
 

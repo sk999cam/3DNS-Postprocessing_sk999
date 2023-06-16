@@ -27,20 +27,25 @@ classdef DNS_case < handle
         meanFlow = meanSlice.empty;
         meanFlows = {};
         instFlow = volFlow.empty;
+        startFlow = spanAveSlice.empty;
+        endFlow = spanAveSlice.empty;
         iSlices;
         jSlices = jSlice.empty;
         kSlices = kSlice.empty;
         inflowTurb = volTurbulence.empty;
+        spanAveFlow = kSlice.empty
         RANSSlices;
         trip;
         iTrip = false;
         e_unst = [];
         cell_area = [];
+        if_rans;
+        speed_up;
     end
 
     properties (Dependent = true)
         ftrip;
-        Re_k        % Trip Reynolds number
+        Re_k;        % Trip Reynolds number
     end
 
     methods
@@ -68,13 +73,24 @@ classdef DNS_case < handle
                 end
                 disp(obj.casepath)
 
-                 if exist(fullfile(obj.casepath,'body.txt'),'file')
+                if exist(fullfile(obj.casepath,'body.txt'),'file')
                     obj.casetype = 'gpu';
                 else
                     obj.casetype = 'cpu';
                 end
                 fprintf('Case type: %s\n', obj.casetype);
-    
+
+
+                if exist(fullfile(obj.casepath,'rans.txt'),'file')
+                    f = fopen(fullfile(obj.casepath,'rans.txt'),'r');
+                    obj.if_rans = str2num(fgetl(f));
+                    obj.speed_up = str2num(fgetl(f));
+                    fclose(f)
+                else
+                    obj.if_rans = false;
+                    obj.speed_up = 1.0;
+                end
+
                 rcase = read_case(casename, obj.casetype, obj.run);
                 obj.NB = rcase.NB;
                 obj.blk = rcase.blk;
@@ -89,6 +105,7 @@ classdef DNS_case < handle
                 obj.blk.inlet_blocks{1} = rcase.inlet_blocks;
                 obj.blk.z = linspace(0, obj.solver.span, obj.blk.nk);
                 obj.blk.viewarea = [];
+                obj.pitch = 0;
                 if nargin < 3 || ~isfield(args,'topology')
                     if obj.NB == 9
                         obj.topology = 1;
@@ -194,7 +211,7 @@ classdef DNS_case < handle
             end
             slicenums = slicetime(end-obj.nSlices+1:end,1);
             slicenum = slicenums(numslice);
-            slice =kSlice(obj.blk,obj.gas,obj.runpath,slicenum);
+            slice =kSlice(obj.blk,obj.gas,obj.bcs,obj.runpath,slicenum);
         end
 
         function slice = readSingleJSlice(obj,numslice)
@@ -202,6 +219,10 @@ classdef DNS_case < handle
             slicenums = slicetime(end-obj.nSlices+1:end,1);
             slicenum = slicenums(numslice);
             slice =jSlice(obj.runpath,slicenum,obj.blk,obj.gas);
+        end
+
+        function readSpanAveFlo(obj)
+            obj.spanAveFlow = kSlice(obj.blk,obj.gas,obj.bcs,obj.runpath,'flow_2d',[],obj.casetype,true);
         end
 
         function readKSlices(obj, slicenums, runs)
@@ -293,7 +314,7 @@ classdef DNS_case < handle
 
             for i=1:obj.nSlices
                 fprintf('Reading slice %d/%d\n',[i obj.nSlices])
-                obj.kSlices(i) = kSlice(obj.blk,obj.gas,paths2read{i},slicenums2read(i),time2read(i),obj.casetype,ishere);
+                obj.kSlices(i) = kSlice(obj.blk,obj.gas,obj.bcs,paths2read{i},slicenums2read(i),time2read(i),obj.casetype,ishere);
                 %slices(i).time = slicetime(i,2);
             end
             
@@ -352,8 +373,24 @@ classdef DNS_case < handle
 
         function readInstFlow(obj)
             %READINSTFLOW Read in instantaneous 3D flow
-            obj.instFlow = volFlow(obj.runpath,obj.blk,obj.gas,obj.casetype);
+            obj.instFlow = volFlow(obj.runpath,obj.blk,obj.gas,obj.bcs,obj.casetype,obj.if_rans);
             
+        end
+
+        function readStartEndFlow(obj)
+
+            fid = fopen(fullfile(obj.runpath,'mean_time.txt'),'r');
+            while ~feof(fid) % Use lastest mean files
+                temp=fgetl(fid);
+            end
+%                 temp = fgetl(fid);
+            fclose(fid);
+            temp = str2num(temp);
+            nMean = temp(1)
+
+            obj.startFlow = spanAveSlice(obj.runpath,obj.blk,obj.gas,obj.bcs,obj.casetype,nMean-1);
+            obj.endFlow = spanAveSlice(obj.runpath,obj.blk,obj.gas,obj.bcs,obj.casetype,nMean);
+
         end
 
         function writeInstFlow(obj, path)
@@ -368,7 +405,12 @@ classdef DNS_case < handle
 
         function readMeanFlow(obj)
             %READMEANFLOW Read in 2D mean flow
-            obj.meanFlow = meanSlice(obj.runpath,obj.blk,obj.gas,obj.casetype);
+            if strcmp(obj.runpath, obj.casepath)
+                ishere = true;
+            else
+                ishere = false;
+            end
+            obj.meanFlow = meanSlice(obj.runpath,obj.blk,obj.gas,obj.bcs,obj.casetype,ishere);
         end
 
         function readMeanFlows(obj, calc_s_unst)
@@ -380,7 +422,7 @@ classdef DNS_case < handle
             regions = obj.getIntRegions;
             for ir = 1:length(obj.run)
                 fprintf('Reading meanSlice %d/%d (run %d)\n', [ir length(obj.run) obj.run(ir)])
-                mF = meanSlice(obj.runpaths{ir},obj.blk,obj.gas, obj.casetype);
+                mF = meanSlice(obj.runpaths{ir},obj.blk,obj.gas,obj.bcs,obj.casetype,false);
                 if ir == 1
                     obj.meanFlow = mF;
                     if calc_s_unst
@@ -527,13 +569,21 @@ classdef DNS_case < handle
 
             fprintf(f,'%d %d\n',[obj.nProbes obj.nSkip]);
             for ip = 1:obj.nProbes
-                fprintf(f,'%d %d %d %d\n', [obj.probes{ip}.nb obj.probes{ip}.i obj.probes{ip}.j obj.probes{ip}.k]);
+                fprintf(f,'%d %d %d %d\n', [obj.probes{ip}.nb objkPl.probes{ip}.i obj.probes{ip}.j obj.probes{ip}.k]);
             end
             
             fclose(f);
         end
 
-        function s = kPlot(obj,slice,prop,ax,lims,label)
+        function s = kPlot(obj,slice,prop,ax,lims,label,viewarea,nrepeats)
+
+            repeats = 1;
+            if isfield(obj.blk, "n_pitchwise_repeats")
+                repeats = obj.blk.n_pitchwise_repeats;
+            end
+            if nargin > 7 && ~isempty(repeats)
+                repeats = nrepeats;
+            end
             
             if nargin < 4 || isempty(ax)
                 ax = gca;
@@ -547,12 +597,22 @@ classdef DNS_case < handle
                 q = slice.(prop);
             end
             hold on
+            offset = 0;
+            if repeats > 2
+                offset = -obj.pitch;
+            end
+            for ir = 1:repeats
             for i=1:slice.NB
-                s = pcolor(ax, obj.blk.x{i}, obj.blk.y{i}, q{i});
+                s = pcolor(ax, obj.blk.x{i}, obj.blk.y{i}+offset+(ir-1)*obj.pitch, q{i});
+            end
             end
             shading('interp')
             axis equal
-            if ~isempty(obj.blk.viewarea)
+            if nargin > 6 && ~isempty(viewarea)
+                aspect = [(viewarea(2)-viewarea(1)) (viewarea(4)-viewarea(3)) 1];
+                pbaspect(aspect)
+                axis(viewarea);
+            elseif ~isempty(obj.blk.viewarea)
                 pbaspect(obj.blk.aspect);
                 axis(obj.blk.viewarea);
             end
@@ -564,9 +624,9 @@ classdef DNS_case < handle
                 if nargin < 6
                     label = '$|\nabla \rho|/\rho$';
                 end
-            elseif string(prop) == "vortZ"
-                colormap(redblue)
-            elseif ismember(string(prop),["v","w"])
+            elseif ismember(string(prop),["vortZ","v","w"])
+                val = max(abs(caxis));
+                caxis([-val val]);
                 colormap(redblue)
             end
                
@@ -636,6 +696,10 @@ classdef DNS_case < handle
                 end
                 title(sprintf('Slice %d/%d', i, length(slices)))
                 pause
+            end
+
+            function update_plot()
+
             end
         end
                 
@@ -947,6 +1011,10 @@ classdef DNS_case < handle
             end
         end
 
+        function writeTecplotFiles(obj)
+            obj.instFlow.write_tecplot_files(obj.runpath);
+        end
+
         function writeTripInput(obj, dir)
             if ~obj.iTrip
                 disp('Must setup trip first')
@@ -974,6 +1042,79 @@ classdef DNS_case < handle
         function readRANSSlice(obj,turb,mod)
             ransdir = fullfile('RANS','cwl90');
             obj.RANSSlices{turb.mod} = RANSSlice(ransdir,data,obj.blk,obj.gas);
+        end
+
+        function [e_unst, e_conv, e_diss, e_irrev, e_rev] = entropy_budget(obj, normalise)
+
+            if nargin < 2
+                normalise = false;
+            end
+
+            regions = obj.getIntRegions;
+            e_unst = (obj.area_integral(obj.endFlow.ros, regions) - ...
+                obj.area_integral(obj.startFlow.ros, regions))/obj.meanFlow.meanTime;
+
+            for ib = 1:obj.NB
+                [DrousDx, ~] = gradHO(obj.blk.x{ib},obj.blk.y{ib},obj.meanFlow.rous{ib});
+                [~, DrovsDy] = gradHO(obj.blk.x{ib},obj.blk.y{ib},obj.meanFlow.rovs{ib});
+                conv_prop{ib} = DrousDx + DrovsDy;
+
+                [DqxDx,~] = gradHO(obj.blk.x{ib},obj.blk.y{ib},obj.meanFlow.rev_gen_x{ib});
+                [~, DqyDy] = gradHO(obj.blk.x{ib},obj.blk.y{ib},obj.meanFlow.rev_gen_y{ib});
+                rev_prop{ib} = -(DqxDx + DqyDy);
+            end
+
+            e_conv = obj.area_integral(conv_prop, regions);
+            e_diss = obj.area_integral(obj.meanFlow.diss_T, regions);
+            e_irrev = obj.area_integral(obj.meanFlow.irrev_gen, regions);
+            e_rev = obj.area_integral(rev_prop, regions);
+
+            if normalise
+                for i=1:length(regions)
+                    e_unst(i) = e_unst(i)/abs(e_conv(i));
+                    e_conv(i) = e_conv(i)/abs(e_conv(i));
+                    e_diss(i) = e_diss(i)/abs(e_conv(i));
+                    e_irrev(i) = e_irrev(i)/abs(e_conv(i));
+                    e_rev(i) = e_rev(i)/abs(e_conv(i));
+                end
+            else
+                factor = abs(e_diss(1));
+                for i=1:length(regions)
+                    e_unst(i) = e_unst(i)/factor;
+                    e_conv(i) = e_conv(i)/factor;
+                    e_diss(i) = e_diss(i)/factor;
+                    e_irrev(i) = e_irrev(i)/factor;
+                    e_rev(i) = e_rev(i)/factor;
+                end
+            end
+
+            groupLabels = {};
+            for ir = 1:length(regions)
+                stackData(ir, 1, 1) = e_conv(ir);
+                stackData(ir, 1, 2) = e_unst(ir);
+                stackData(ir, 1, 3:5) = 0;
+            
+                stackData(ir, 2, 1:2) = 0;
+                stackData(ir, 2, 3) = e_diss(ir);
+                stackData(ir, 2, 4) = e_irrev(ir);
+                stackData(ir, 2, 5) = e_rev(ir);
+                groupLabels{ir} = regions{ir}.label;
+            end
+            
+            h = plotBarStackGroups(stackData, groupLabels);
+            c = colororder;
+            c = c(1:5,:);
+            c = repelem(c,size(h,1),1); 
+            c = mat2cell(c,ones(size(c,1),1),3);
+            set(h,{'FaceColor'},c);
+            legend(h(1,:),'\epsilon_S','\epsilon_{unst}','\epsilon_\phi','\epsilon_{irrev}','\epsilon_{rev}','Location','northeast')
+            set(gca,'FontSize',12)
+            if normalise
+                ylabel('\epsilon/|\epsilon_\Phi|')
+            else
+                ylabel('\epsilon/|\epsilon_{\Phi, Pre-Shock}|')
+            end
+            set(gca, 'XTickLabelRotation',20)
         end
 
 %         function [e_s, e_phi, e_irrev, e_N] = entropy_balance(obj)
@@ -1073,21 +1214,49 @@ classdef DNS_case < handle
 
         end
 
-        function value = area_integral(obj, prop, nb)
-            value = 0.0;
-            for i=1:obj.blk.blockdims(nb,1)-1
-                for j=1:obj.blk.blockdims(nb,2)-1
-                    xnow = [obj.blk.x{nb}(i,j) obj.blk.x{nb}(i+1,j) ...
-                        obj.blk.x{nb}(i+1,j+1) obj.blk.x{nb}(i,j+1)];
-                    ynow = [obj.blk.y{nb}(i,j) obj.blk.y{nb}(i+1,j) ...
-                        obj.blk.y{nb}(i+1,j+1) obj.blk.y{nb}(i,j+1)];
+        function value = area_integral(obj, prop, regions)
+            value = [];
+            for r = [regions{:}]
 
-                    q = 0.25*(prop(i,j)+prop(i+1,j)+prop(i+1,j+1)+prop(i,j+1));
+                im = r.is:r.ie-1;
+                ip = r.is+1:r.ie;
+                jm = r.js:r.je-1;
+                jp = r.js+1:r.je;
+                
+                x1 = obj.blk.x{r.nb}(im,jm);
+                x2 = obj.blk.x{r.nb}(ip,jm);
+                x3 = obj.blk.x{r.nb}(ip,jp);
+                x4 = obj.blk.x{r.nb}(im,jp);
 
-                    area = polyarea(xnow,ynow);
-                    value = value+area*q;
-                end
+                y1 = obj.blk.y{r.nb}(im,jm);
+                y2 = obj.blk.y{r.nb}(ip,jm);
+                y3 = obj.blk.y{r.nb}(ip,jp);
+                y4 = obj.blk.y{r.nb}(im,jp);
+
+                area = 0.5*( (x1.*y2 + x2.*y3 + x3.*y4 + x4.*y1) ...
+                    - (x2.*y1 + x3.*y2 + x4.*y3 + x1.*y4) );
+
+                q = 0.25*(prop{r.nb}(im,jm) + ...
+                          prop{r.nb}(ip,jm) + ...
+                          prop{r.nb}(ip,jp) + ...
+                          prop{r.nb}(im,jp));
+
+                value(end+1) = sum(q.*area,"all");
+
             end
+%             for i=1:obj.blk.blockdims(nb,1)-1
+%                 for j=1:obj.blk.blockdims(nb,2)-1
+%                     xnow = [obj.blk.x{nb}(i,j) obj.blk.x{nb}(i+1,j) ...
+%                         obj.blk.x{nb}(i+1,j+1) obj.blk.x{nb}(i,j+1)];
+%                     ynow = [obj.blk.y{nb}(i,j) obj.blk.y{nb}(i+1,j) ...
+%                         obj.blk.y{nb}(i+1,j+1) obj.blk.y{nb}(i,j+1)];
+% 
+%                     q = 0.25*(prop(i,j)+prop(i+1,j)+prop(i+1,j+1)+prop(i,j+1));
+% 
+%                     area = polyarea(xnow,ynow);
+%                     value = value+area*q;
+%                 end
+%             end
         end
 
 %         function [e_s, e_phi, e_irrev, e_rev] = entropy_balance(obj)
@@ -1195,13 +1364,17 @@ classdef DNS_case < handle
 % 
 %         end
 
-        function plot_mesh(obj, skip, ax)
+        function plot_mesh(obj, skip, ax, label_blocks)
             if nargin<2 || isempty(skip)
                 skip=8;
             end
 
             if nargin<3 || isempty(ax)
                 ax = gca;
+            end
+
+            if nargin < 4 || isempty(label_blocks)
+                label_blocks = false;
             end
             
             hold on
@@ -1220,6 +1393,14 @@ classdef DNS_case < handle
                     else
                         plot(ax, obj.blk.x{ib}(:,j),obj.blk.y{ib}(:,j),'k')
                     end
+                end
+            end
+
+            if label_blocks
+                for ib = 1:obj.NB
+                    i = floor(obj.blk.blockdims(ib,1)/2);
+                    j = floor(obj.blk.blockdims(ib,2)/2);
+                    text(obj.blk.x{ib}(i,j), obj.blk.y{ib}(i,j), num2str(ib),"Color",'r');
                 end
             end
             
@@ -1290,6 +1471,9 @@ classdef DNS_case < handle
             for ib = 1:obj.NB
                 fprintf('Block %d\n',ib);
                 for i=1:obj.blk.blockdims(ib,1)-1
+                    if mod(i,20) == 0
+                        fprintf('i = %d/%d\n',[i obj.blk.blockdims(ib,1)-1])
+                    end
                     for j=1:obj.blk.blockdims(ib,2)-1
                         xnow = [obj.blk.x{ib}(i,j) obj.blk.x{ib}(i+1,j) ...
                             obj.blk.x{ib}(i+1,j+1) obj.blk.x{ib}(i,j+1)];
@@ -1327,7 +1511,7 @@ classdef DNS_case < handle
 
         function [e_unst, e_s, e_phi, e_irrev, e_rev] = entropy_balance(obj, surface_int)
             if nargin < 2
-                surface_int = false;
+                surface_int = true;
             end
 
             if isempty(obj.cell_area)
@@ -1506,18 +1690,22 @@ classdef DNS_case < handle
         
         function value = get.Re_k(obj)
             if isempty(obj.trip)
-                obj.setTrip;
+                value = [];
+            else
+                tripInd = obj.meanFlow.x2ind(obj.trip.x);
+                inds = obj.meanFlow.BLedgeInd;
+                nunow = obj.meanFlow.nu_e;
+                Unow = obj.meanFlow.U;
+                Ue = Unow(tripInd,inds(tripInd));
+                nu_k = nunow(tripInd);
+                value = Ue*obj.trip.scale/nu_k;
             end
-            tripInd = obj.meanFlow.x2ind(obj.trip.x);
-            inds = obj.meanFlow.BLedgeInd;
-            nunow = obj.meanFlow.nu_e;
-            Unow = obj.meanFlow.U;
-            Ue = Unow(tripInd,inds(tripInd));
-            nu_k = nunow(tripInd);
-            value = Ue*obj.trip.scale/nu_k;
         end
 
-        function regions = getIntRegions(obj)
+        function regions = getIntRegions(obj, iplot)
+            if nargin < 2
+                iplot = false;
+            end
             switch obj.topology
                 case 2
                     xrangePreShock = [0.16 0.59];
@@ -1546,8 +1734,8 @@ classdef DNS_case < handle
                     [~, regions{4}.ie] = min(abs(obj.blk.x{10}(:,obj.blk.blockdims(10,2)/2) - xMaxWake));
                     regions{4}.js = 1; regions{4}.je = obj.blk.blockdims(10,2);
                 case 3
-                    xrangePreShock = [0.1 0.4];
-                    xrangePostShock = [0.6 0.9];
+                    xrangePreShock = [0.1 0.45];
+                    xrangePostShock = [0.55 0.9];
         
                     regions = {};
                     regions{1}.nb = 1;
@@ -1555,12 +1743,32 @@ classdef DNS_case < handle
                     [~, regions{1}.ie] = min(abs(obj.blk.x{1}(:,1) - xrangePreShock(2)));
                     regions{1}.js = 1;
                     regions{1}.je = 192;
+                    regions{1}.label = "Pre-shock";
                     
                     regions{2}.nb = 1;
                     [~, regions{2}.is] = min(abs(obj.blk.x{1}(:,1) - xrangePostShock(1)));
                     [~, regions{2}.ie] = min(abs(obj.blk.x{1}(:,1) - xrangePostShock(2)));
                     regions{2}.js = 1;
                     regions{2}.je =  192;
+                    regions{2}.label = "Post-shock";
+            end
+            if iplot
+                ax = gca;
+                obj.kPlot(obj.meanFlow, 'diss',ax,[],'$\phi$');
+                hold on
+                p = [];
+                for ir = 1:length(regions)
+                    nb = regions{ir}.nb;
+                    irange = regions{ir}.is:regions{ir}.ie;
+                    jrange = regions{ir}.js:regions{ir}.je;
+                    xline = [obj.blk.x{nb}(irange,jrange(1))' obj.blk.x{nb}(irange(end),jrange(2:end)) ...
+                        obj.blk.x{nb}(irange(end-1:-1:1),jrange(end))' obj.blk.x{nb}(irange(1), jrange(end-1:-1:1))];
+                    yline = [obj.blk.y{nb}(irange,jrange(1))' obj.blk.y{nb}(irange(end),jrange(2:end)) ...
+                        obj.blk.y{nb}(irange(end-1:-1:1),jrange(end))' obj.blk.y{nb}(irange(1), jrange(end-1:-1:1))];
+                    p(ir) = plot(ax, xline, yline, 'LineWidth', 1.5);
+                    labels{ir} = regions{ir}.label;
+                end
+                legend(p,[labels{:}]);
             end
         end
 
@@ -1654,7 +1862,13 @@ classdef DNS_case < handle
             end
         end
 
-        function writeMovie(obj, slices, prop, lims, label, area, name)
+        function writeMovie(obj, slices, prop, lims, label, area, name, framerate)
+            
+            replot = true;
+
+            if nargin < 8
+                framerate = 5;
+            end
             if nargin < 6 || isempty(area)
                 area = obj.blk.viewarea;
                 aspect = obj.blk.aspect;
@@ -1689,7 +1903,7 @@ classdef DNS_case < handle
                 end
             end
 
-            p = gcp('nocreate');
+%             p = gcp('nocreate');
 %             if isempty(p)
 %                 parpool(16);
 %             end
@@ -1699,23 +1913,30 @@ classdef DNS_case < handle
                 case 'jSlice'
                     var = ['j_' prop];
             end
-            if nargin < 7 || isempty(name)
-                imgfolder = fullfile(obj.runpath,'animation_images',var);
-                vname = ['/run' num2str(obj.run(end)) '_' var '.mp4"'];
+            if length(obj.run) == 1
+                vname = ['/run' num2str(obj.run)];
             else
-                imgfolder = fullfile(obj.runpath,'animation_images',name);
-                vname = ['/run' num2str(obj.run(end)) '_' name '.mp4"']
+                vname = ['/run' num2str(obj.run(1)) '-' num2str(obj.run(end))];
             end
-            %%
-            if ~exist(imgfolder, 'dir')
-                   mkdir(imgfolder);
+            if nargin < 7 || isempty(name)
+                vname = [vname '_' var '.mp4"'];
+            else
+                vname = ['/run' num2str(obj.run(end)) '_' name '.mp4"'];
             end
+
+            tempfolder = fullfile(obj.runpath,'temp');
+            mkdir(tempfolder);
             
             %%
-            outfolder = obj.runpath;
+
             for i=1:length(slices)
+                imgfolder = fullfile(slices(i).casepath,'animation_images',var);
+                if ~exist(imgfolder, 'dir')
+                    mkdir(imgfolder);
+                end
                 fprintf('Plotting slice %d/%d\n',i,length(slices))
-                if ~exist(fullfile(imgfolder,sprintf('img_%03d.png',slices(i).nSlice)),'file')
+                fname = fullfile(imgfolder,sprintf('img_%03d.png',slices(i).nSlice));
+                if ~exist(fname,'file') || replot
                     if strcmp(prop,'overlay')
                         slice2schlierenVortOverlay(slices(i), obj.blk, fullfile(imgfolder,sprintf('img_%03d.png',slices(i).nSlice)), lims, area, aspect);
                     else
@@ -1727,21 +1948,15 @@ classdef DNS_case < handle
                         end
                     end
                 end
+                copyfile(fname, tempfolder);
             end
             
-            if strcmp(obj.casepath, obj.runpath)
-                system(['ffmpeg -framerate 5 -pattern_type glob -i "' imgfolder '/*.png" '...
-                    '-c:v libx264 -profile:v high -pix_fmt yuv420p -vf ' ...
-                    '"pad=ceil(iw/2)*2:ceil(ih/2)*2" "' ...
-                     outfolder '/' var '.mp4"']);
-            else
-                system(['ffmpeg -framerate 5 -pattern_type glob -i "' imgfolder '/*.png" '...
-                    '-c:v libx264 -profile:v high -pix_fmt yuv420p -vf ' ...
-                    '"pad=ceil(iw/2)*2:ceil(ih/2)*2" "' ...
-                     outfolder vname]);
-            end
+            system(['ffmpeg -framerate ' num2str(framerate) ' -pattern_type glob -i "' tempfolder '/*.png" '...
+                '-c:v libx264 -profile:v high -pix_fmt yuv420p -vf ' ...
+                '"pad=ceil(iw/2)*2:ceil(ih/2)*2" "' ...
+                 obj.runpath vname]);
 
-
+            rmdir(tempfolder,"s");
 
         end
 
@@ -1806,13 +2021,16 @@ classdef DNS_case < handle
             write_plot3d_extruded(obj.blk, path, nk, span);
         end
 
-        function blkNodes = write_Fluent_mesh_2d(obj, path)
+        function blkNodes = writeFluentMesh2d(obj, path)
             if nargin < 2
                 path = fullfile(obj.casepath,[obj.casename '_Fluent_2d.msh']);
                 %npath = fullfile(obj.casepath,[obj.casename '_Fluent_nodes.mat']);
             end
+            blkNodes = obj.write_fluent_mesh_2d(path);
+        end
 
-            blkNodes = writeFluentMesh(path, obj.blk, obj.blk.next_block, obj.blk.next_patch, true);
+        function blkNodes = write_fluent_mesh_2d(obj, path)
+            blkNodes = writeAerofoilFluentMesh(path, obj.blk, obj.blk.next_block, obj.blk.next_patch, true);
         end
 
         function blkNodes = write_Fluent_mesh(obj, fname)

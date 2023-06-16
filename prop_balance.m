@@ -32,10 +32,10 @@ function [vol_int, surf_int] = prop_balance(prop,blk,cell_areas,regions, plot)
             dA1 = yline(2:end) - yline(1:end-1);
             dA2 = xline(1:end-1) - xline(2:end);
 
-            if ispolycw(xline, yline)
-                dA1 = -dA1;
-                dA2 = -dA2;
-            end
+%             if ispolycw(xline, yline)
+%                 dA1 = -dA1;
+%                 dA2 = -dA2;
+%             end
 
             u1 = [prop{nb}(irange,jrange(1),1)' prop{nb}(irange(end),jrange(2:end),1) ...
             prop{nb}(irange(end-1:-1:1),jrange(end),1)' prop{nb}(irange(1), jrange(end-1:-1:1),1)];

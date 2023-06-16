@@ -1,4 +1,4 @@
-classdef volFlow
+classdef volFlow < handle
     % VOLFLOW Contains a 3D instntaneous flow from DNS case
 
         
@@ -6,6 +6,7 @@ classdef volFlow
         NB;
         gas;
         blk;
+        bcs;
         gam;
         cp;
         rgas;
@@ -14,6 +15,7 @@ classdef volFlow
         v;
         w;
         Et;
+        mut;
         time;
         tau;
         div;
@@ -27,6 +29,7 @@ classdef volFlow
         Qstore;              % Q Criterion
         casetype;
         flowpath;
+        if_rans;
     end
 
     properties (Dependent = true)
@@ -42,17 +45,19 @@ classdef volFlow
     end
 
     methods
-        function obj = volFlow(casedir, blk, gas, casetype)
+        function obj = volFlow(casedir, blk, gas, bcs, casetype, if_rans)
 
             if nargin > 0
                 blockdims = blk.blockdims;
                 obj.blk = blk;
                 obj.gas = gas;
+                obj.bcs = bcs;
                 obj.nk = blockdims(1,3);
                 obj.gam = gas.gam;
                 obj.cp = gas.cp;
                 obj.rgas = obj.cp*(1-1/obj.gam);
                 obj.casetype = casetype;
+                obj.if_rans = if_rans;
     
                 obj.NB = size(blockdims,1);
                 for nb = 1:obj.NB
@@ -115,12 +120,22 @@ classdef volFlow
                             fid = fopen(fullfile(casedir, ['flow_' num2str(nb)]));
                             A = fread(fid, ni*nj*nk*5, 'float64');
                             A = reshape(A, 5, length(A)/5)';
+                            fclose(fid);
 
                             ro = reshape(A(:,1),ni,nj,nk);
                             ru = reshape(A(:,2),ni,nj,nk);
                             rv = reshape(A(:,3),ni,nj,nk);
                             rw = reshape(A(:,4),ni,nj,nk);
                             Et = reshape(A(:,5),ni,nj,nk);
+
+                            if if_rans
+                                fid = fopen(fullfile(casedir, ['rans_' num2str(nb)]));
+                                A = fread(fid, ni*nj*nk, 'float64');
+                                mut = reshape(A(:),ni,nj,nk);
+                                fclose(fid);
+                            else
+                                mut = [];
+                            end
                     end
     
                     obj.ro{nb} = ro;
@@ -128,6 +143,7 @@ classdef volFlow
                     obj.v{nb} = rv./ro;
                     obj.w{nb} = rw./ro;
                     obj.Et{nb} = Et;
+                    obj.mut{nb} = mut;
                 end
             else
                 obj.ro = {};
@@ -135,6 +151,7 @@ classdef volFlow
                 obj.v = {};
                 obj.w = {};
                 obj.Et = {};
+                obj.mut = {};
             end
         end
 
@@ -203,11 +220,17 @@ classdef volFlow
         end
 
         function value = get.Q(obj)
-            obj.set_Q;
-            value = obj.Qstore;
+            value = obj.get_Q;
         end
 
-        function obj = set_Q(obj)
+        function obj = set.Q(obj, value)
+            obj.set_Q(value);
+        end
+
+        function set_Q(obj, value)
+        end
+
+        function value = get_Q(obj)
             if isempty(obj.Qstore)
                 value = cell(1,obj.NB);
                 for nb = obj.blk.oblocks
@@ -215,6 +238,8 @@ classdef volFlow
                     value{nb} = Q_criterion(obj.blk.x{nb},obj.blk.y{nb},obj.blk.z,obj.u{nb},obj.v{nb},obj.w{nb});
                 end
                 obj.Qstore = value;
+            else
+                value = obj.Qstore;
             end
         end
 
@@ -223,7 +248,7 @@ classdef volFlow
 %             Y = repmat(obj.blk.y{1},[1 1 obj.nk]);
 %             Z = repmat(obj.blk.z,[size(obj.blk.x{1}) 1]);
             Qnow = obj.Q;
-            for nb = 5%obj.blk.oblocks
+            for nb = obj.blk.oblocks
                 %X = repmat(obj.blk.x{nb},1,1,length(obj.blk.z));
                 X = linspace(0,1,size(obj.blk.x{nb},1));
                 %Y = repmat(obj.blk.y{nb},1,1,length(obj.blk.z));
@@ -284,7 +309,11 @@ classdef volFlow
                 k = floor(obj.nk/2);
             end
 
-            value = kSlice(obj.blk, obj.gas); %(obj.blk.blockdims, obj.gas);
+            if obj.if_rans
+                value = RANSSlice(obj.blk,obj.gas,obj.bcs);
+            else
+                value = kSlice(obj.blk, obj.gas, obj.bcs); %(obj.blk.blockdims, obj.gas);
+            end
 
             for nb=1:obj.NB
                 nb;
@@ -293,20 +322,23 @@ classdef volFlow
                 value.v{nb} = obj.v{nb}(:,:,k);
                 value.w{nb} = obj.w{nb}(:,:,k);
                 value.Et{nb} = obj.Et{nb}(:,:,k);
+                if obj.if_rans
+                    value.mut_store{nb} = obj.mut{nb};
+                end
             end
         end
 
-        function write_tecplot_files(obj)
+        function write_tecplot_files(obj, path)
             for nb = 1:obj.NB
-                if(nb==4 | nb==6)
                     tdata=[];
                     tdata.Nvar=9;
                     tdata.varnames={'x','y','z','p','T','ro','u','v','w'};
                     tdata.cubes(1).zonename=['block ',num2str(nb)];
-                    zz(1,1,1:obj.blk.nk{nb}) = linspace(0,obj.blk.span,obj.blk.nk{nb}); 
+                    zz(1,1,1:obj.blk.nk) = obj.blk.z; 
                     z = repmat(zz,[obj.blk.blockdims(nb,1) obj.blk.blockdims(nb,2) 1]);
-                    x = repmat(obj.blk.x{nb},[1 1 obj.blk.nk{nb}]);
-                    y = repmat(obj.blk.y{nb},[1 1 obj.blk.nk{nb}]);
+                    x = repmat(obj.blk.x{nb},[1 1 obj.blk.nk]);
+                    y = repmat(obj.blk.y{nb},[1 1 obj.blk.nk]);
+                if ismember(nb, obj.blk.oblocks_flip)
                     tdata.cubes(1).x=x(end:-1:1,:,:);
                     tdata.cubes(1).y=y(end:-1:1,:,:);
                     tdata.cubes(1).z=z(end:-1:1,:,:);
@@ -316,19 +348,7 @@ classdef volFlow
                     tdata.cubes(1).v(4,:,:,:)=obj.u{nb}(end:-1:1,:,:);
                     tdata.cubes(1).v(5,:,:,:)=obj.v{nb}(end:-1:1,:,:);
                     tdata.cubes(1).v(6,:,:,:)=obj.w{nb}(end:-1:1,:,:);
-                    tdata.vformat(1:9) = 1; 
-                    tdata.cubes.solutiontime=0;
-                    mat2tecplot(tdata,['tec_flow_',num2str(nb),'.plt'])
-
                 else
-                    tdata=[];
-                    tdata.Nvar=9;
-                    tdata.varnames={'x','y','z','p','T','ro','u','v','w'};
-                    tdata.cubes(1).zonename=['block ',num2str(nb)];
-                    zz(1,1,1:obj.blk.nk{nb}) = linspace(0,obj.blk.span,obj.blk.nk{nb}); 
-                    z = repmat(zz,[obj.blk.blockdims(nb,1) obj.blk.blockdims(nb,2) 1]);
-                    x = repmat(obj.blk.x{nb},[1 1 obj.blk.nk{nb}]);
-                    y = repmat(obj.blk.y{nb},[1 1 obj.blk.nk{nb}]);
                     tdata.cubes(1).x=x;
                     tdata.cubes(1).y=y;
                     tdata.cubes(1).z=z;
@@ -338,12 +358,11 @@ classdef volFlow
                     tdata.cubes(1).v(4,:,:,:)=obj.u{nb};
                     tdata.cubes(1).v(5,:,:,:)=obj.v{nb};
                     tdata.cubes(1).v(6,:,:,:)=obj.w{nb};
-                    tdata.vformat(1:9) = 1; 
-                    tdata.cubes.solutiontime=0;
-                    mat2tecplot(tdata,['tec_flow_',num2str(nb),'.plt'])
-        
-                    mat2tecplot(tdata,['tec_flow_',num2str(nb),'.plt'])
                 end
+                tdata.vformat(1:9) = 2; 
+                tdata.cubes.solutiontime=0;
+                fname = fullfile(path,['tec_flow_',num2str(nb),'.plt']);
+                mat2tecplot(tdata,fname)
             end
         end
 
@@ -441,7 +460,7 @@ classdef volFlow
         end
 
         function writeFlow(obj, path)
-            if nargin < 2
+            if nargi-n < 2
                 path = obj.flowpath;
             end
             for nb = 1:obj.NB
@@ -454,7 +473,7 @@ classdef volFlow
             p = inputParser;
             addRequired(p,'block');
             addOptional(p,'factor',1);
-            addOptional(p,'dims');
+            addOptional(p,'dims',[1 2 3]);
 
             newFlow = obj.copySkeleton;
             newFlow.NB = 1;
@@ -462,15 +481,30 @@ classdef volFlow
             ib = p.Results.block;
             factor = p.Results.factor;
             
-            is = downsample(1:obj.blk.blockdims(ib,1),factor);
-            js = downsample(1:obj.blk.blockdims(ib,2),factor);
-            ks = downsample(1:obj.blk.blockdims(ib,3),factor);
-
+            if factor ~= 1
+                is = 1:factor:obj.blk.blockdims(ib,1);
+                js = 1:factor:obj.blk.blockdims(ib,2);
+                ks = 1:factor:obj.blk.blockdims(ib,3);
+            else
+                is = 1:dims(1):obj.blk.blockdims(ib,1);
+                js = 1:dims(2):obj.blk.blockdims(ib,2);
+                ks = 1:dims(3):obj.blk.blockdims(ib,3);
+            end
 
             blk = obj.blk;
-            blk.x = ob;
+            blk.blockdims = [length(is) length(js) length(ks)];
+            blk.x{1:obj.NB} = []; blk.x{ib} = obj.blk.x{ib}(is,js);
+            blk.y{1:obj.NB} = []; blk.y{ib} = obj.blk.y{ib}(is,js);
+            blk.nk = length(ks);
+            blk.z = blk.z(ks);
 
-            
+            newFlow.blk = blk;
+            newFlow.nk = blk.nk;
+            newFlow.ro{ib} = obj.ro{ib}(is,js,ks);
+            newFlow.u{ib} = obj.u{ib}(is,js,ks);
+            newFlow.v{ib} = obj.v{ib}(is,js,ks);
+            newFlow.w{ib} = obj.w{ib}(is,js,ks);
+            newFlow.Et{ib} = obj.Et{ib}(is,js,ks);
 
         end
         

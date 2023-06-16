@@ -16,7 +16,7 @@ function rcase = read_case(casename, type, run)
     
         case 'cpu'
     
-            fpath = fullfile(base, casename, runpath, 'input_cpu.txt');
+            fpath = fullfile(base, casename, runpath, 'input_cpu.txt')
             f = fopen(fpath);
         
             NB = str2num(fgetl(f));

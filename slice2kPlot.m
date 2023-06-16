@@ -23,6 +23,6 @@ function slice2kPlot(slice, blk, prop, fpath, lims, label, area, aspect)
     if nargin > 5 && ~isempty(label)
         cb.Label.String = label;
     end
-    set(ax,'FontSize',16);
+    set(ax,'FontSize',12);
     exportgraphics(h, fpath, 'Resolution', 600);
 end

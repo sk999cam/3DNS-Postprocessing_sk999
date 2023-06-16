@@ -5,6 +5,7 @@ classdef kSlice < kCut
     properties
         time;
         nSlice;
+        casepath;
     end
 
     properties (Dependent = true)
@@ -16,19 +17,23 @@ classdef kSlice < kCut
     end
 
     methods
-        function obj = kSlice(blk, gas, casedir, nSlice, time, casetype, ishere)
-            obj@kCut(blk, gas);
+        function obj = kSlice(blk, gas, bcs, casedir, nSlice, time, casetype, ishere)
+            obj@kCut(blk, gas, bcs);
             disp('Constructing kSlice')
 
             if nargin < 7
                 ishere = false;
             end
         
-            if nargin > 0
+            if nargin > 3
     
                 if nargin > 2
-                    obj.nSlice = nSlice;
-                    obj.time = time;
+                    if ~ischar(nSlice)
+                        obj.nSlice = nSlice;
+                        obj.time = time;
+                    end
+
+                    obj.casepath = casedir;
         
                     for nb = 1:obj.NB
 
@@ -73,10 +78,14 @@ classdef kSlice < kCut
                                 end
 
                             case 'gpu'
-                                if ishere
-                                    fid = fopen(fullfile(casedir, ['kcut_' num2str(nb) '_' num2str(nSlice)]));
+                                if ischar(nSlice)
+                                    fid = fopen(fullfile(casedir, [nSlice '_' num2str(nb)]));
                                 else
-                                    fid = fopen(fullfile(casedir, 'k_cuts', ['kcut_' num2str(nb) '_' num2str(nSlice)]));
+                                    if ishere
+                                        fid = fopen(fullfile(casedir, ['kcut_' num2str(nb) '_' num2str(nSlice)]));
+                                    else
+                                        fid = fopen(fullfile(casedir, 'k_cuts', ['kcut_' num2str(nb) '_' num2str(nSlice)]));
+                                    end
                                 end
                                 A = fread(fid, ni*nj*5, 'float64');
                                 A = reshape(A, 5, length(A)/5)';

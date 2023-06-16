@@ -1,4 +1,4 @@
-function blkNodes = writeFluentMesh(path, blk, next_block, next_patch, iWrite)
+function blkNodes = writeCascadeFluentMesh(path, blk, next_block, next_patch, iWrite)
 
     if nargin < 5
         iWrite = true;
@@ -84,7 +84,7 @@ function blkNodes = writeFluentMesh(path, blk, next_block, next_patch, iWrite)
 
     % Inlet
     inlet_faces(1)=nfaces;
-    for ib = [1 2 3]
+    for ib = [1 2]
         for j = 1:size(blk.x{ib},2)-1
 %             faces(nfaces).n1 = blk.nodes{ib}(1,j);
 %             faces(nfaces).n2 = blk.nodes{ib}(1,j+1);
@@ -99,7 +99,7 @@ function blkNodes = writeFluentMesh(path, blk, next_block, next_patch, iWrite)
 
     % Upper periodic
     uPer_faces(1)=nfaces;
-    for ib = [3 8 12]
+    for ib = [1 5 8]
         for i = 1:size(blk.x{ib},1)-1
 %             faces(nfaces).n1 = blk.nodes{ib}(i,end);
 %             faces(nfaces).n2 = blk.nodes{ib}(i+1,end);
@@ -113,7 +113,7 @@ function blkNodes = writeFluentMesh(path, blk, next_block, next_patch, iWrite)
 
     % Lower periodic
     lPer_faces(1)=nfaces;
-    for ib = [2 7 11]
+    for ib = [2 6 9]
         for i = 1:size(blk.x{ib},1)-1
 %             faces(nfaces).n1 = blk.nodes{ib}(i,1);
 %             faces(nfaces).n2 = blk.nodes{ib}(i+1,1);
@@ -127,7 +127,7 @@ function blkNodes = writeFluentMesh(path, blk, next_block, next_patch, iWrite)
 
     % Outlet
     outlet_faces(1)=nfaces;
-    for ib = [10 11 12]
+    for ib = [8 9]
         for j = 1:size(blk.x{ib},2)-1
 %             faces(nfaces).n1 = blk.nodes{ib}(end,j);
 %             faces(nfaces).n2 = blk.nodes{ib}(end,j+1);
@@ -140,35 +140,16 @@ function blkNodes = writeFluentMesh(path, blk, next_block, next_patch, iWrite)
     outlet_faces(2)=nfaces-1;
 
     % Blade
-    upper_blade_faces(1)=nfaces;
-    nLowerFaces = 0;
-    lower_faces = [];
-    for ib = [4 5 6 9]
+    blade_faces(1)=nfaces;
+    for ib = [3 4 5 7]
         for i = 1:size(blk.x{ib},1)-1
-%             faces(nfaces).n1 = blk.nodes{ib}(i,end);
-%             faces(nfaces).n2 = blk.nodes{ib}(i+1,end);
-            midpoint = (blk.y{ib}(i,end)+blk.y{ib}(i+1,end))/2;
-            if midpoint > 0
                 blk.jfaces{ib}(i,end) = nfaces;
                 faces(nfaces).bc = 3;
                 nfaces = nfaces+1;
-            else
-                nLowerFaces = nLowerFaces + 1;
-                lower_faces(nLowerFaces,:) = [ib i];
-            end
-
         end
         boundary_zone(ib,4) = true;
     end
-    upper_blade_faces(2)=nfaces-1;
-    
-    lower_blade_faces(1)=nfaces;
-    for iface=1:nLowerFaces
-        blk.jfaces{lower_faces(iface,1)}(lower_faces(iface,2),end) = nfaces;
-        faces(nfaces).bc = 3;
-        nfaces = nfaces+1;
-    end
-    lower_blade_faces(2)=nfaces-1;
+    blade_faces(2)=nfaces-1;
 
     for ib = 1:NB
         fprintf('Calculating block %d/%d\n',ib,NB)
@@ -388,18 +369,9 @@ function blkNodes = writeFluentMesh(path, blk, next_block, next_patch, iWrite)
         fprintf(fid, '))\n');
         fprintf(fid, '\n');
     
-        fprintf(fid,'(0 "Upper Blade:")\n');
-        fprintf(fid,'(13 (7 %X %X %X 2)(\n', [upper_blade_faces(1) upper_blade_faces(2) 3]);
-        for n=upper_blade_faces(1):upper_blade_faces(2)
-            %fprintf('%d, n1: %d %X, n2: %d %X, cr: %d %X, cl: %d %X\n', [n faces(n).n1 faces(n).n1 faces(n).n2 faces(n).n2 faces(n).cr faces(n).cr faces(n).cl faces(n).cl])
-            fprintf(fid,'%X %X %X %X\n',[faces(n).n1 faces(n).n2 faces(n).cr faces(n).cl]);
-        end
-        fprintf(fid, '))\n');
-        fprintf(fid, '\n');
-    
-        fprintf(fid,'(0 "Lower Blade:")\n');
-        fprintf(fid,'(13 (8 %X %X %X 2)(\n', [lower_blade_faces(1) lower_blade_faces(2) 3]);
-        for n=lower_blade_faces(1):lower_blade_faces(2)
+        fprintf(fid,'(0 "Blade:")\n');
+        fprintf(fid,'(13 (7 %X %X %X 2)(\n', [blade_faces(1) blade_faces(2) 3]);
+        for n=blade_faces(1):blade_faces(2)
             %fprintf('%d, n1: %d %X, n2: %d %X, cr: %d %X, cl: %d %X\n', [n faces(n).n1 faces(n).n1 faces(n).n2 faces(n).n2 faces(n).cr faces(n).cr faces(n).cl faces(n).cl])
             fprintf(fid,'%X %X %X %X\n',[faces(n).n1 faces(n).n2 faces(n).cr faces(n).cl]);
         end

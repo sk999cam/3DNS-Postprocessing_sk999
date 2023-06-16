@@ -21,9 +21,9 @@ classdef kCut < flowSlice
     end
 
     methods
-        function obj = kCut(blk, gas)
-            obj@flowSlice(blk,gas)
-            disp('Constucting kCut')
+        function obj = kCut(blk, gas, bcs)
+            obj@flowSlice(blk,gas,bcs)
+            disp('Constructing kCut')
             if nargin > 0
                 if size(blk.blockdims,1) > 0
                     obj.oblocks = blk.oblocks;

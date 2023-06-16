@@ -23,38 +23,40 @@ classdef RANSSlice < aveSlice
     end
 
     methods
-        function obj = RANSSlice(blk, gas, basedir, datafile, trans, mod, nodes, renorm)
-            obj@aveSlice(blk, gas);
+        function obj = RANSSlice(blk, gas, bcs, basedir, datafile, trans, mod, nodes, renorm)
+            obj@aveSlice(blk, gas, bcs);
             disp('Constructing RANSSlice')
-            %obj.blk = blk;
-            obj.trans = trans;
-            obj.mod = mod;
-            transstr = ["turb","trans"];
-            modstr = ["bsl","mod"];
-            %data = readtable(fullfile(basedir,transstr(trans+1) + "_" + modstr(mod+1),'hf2d.txt'));
-            %data = readtable(fullfile(basedir,'hf2d.txt'));
-            data = readtable(fullfile(basedir,datafile));
-            if any("x_coordinate" == string(data.Properties.VariableNames))
-                mode = 'fluent';
-            else
-                mode = 'hydra';
-            end
 
-            if nargin < 7 || isempty(nodes)
-                switch mode
-                    case 'fluent'
-                        points.x_coordinate = data.x_coordinate;
-                        points.y_coordinate = data.y_coordinate;
-                        points.nodenumber = data.nodenumber;
-                    case 'hydra'
-                        points.x_coordinate = data.Points_0;
-                        points.y_coordinate = data.Points_1;
-                        points.nodenumber = 1:size(data,1);
+
+            if nargin > 3
+
+                            %obj.blk = blk;
+                obj.trans = trans;
+                obj.mod = mod;
+                transstr = ["turb","trans"];
+                modstr = ["bsl","mod"];
+                %data = readtable(fullfile(basedir,transstr(trans+1) + "_" + modstr(mod+1),'hf2d.txt'));
+                %data = readtable(fullfile(basedir,'hf2d.txt'));
+                data = readtable(fullfile(basedir,datafile));
+                if any("x_coordinate" == string(data.Properties.VariableNames))
+                    mode = 'fluent';
+                else
+                    mode = 'hydra';
                 end
-                nodes = mesh2nodes(blk,points);
-            end
-
-            if nargin > 0
+    
+                if nargin < 7 || isempty(nodes)
+                    switch mode
+                        case 'fluent'
+                            points.x_coordinate = data.x_coordinate;
+                            points.y_coordinate = data.y_coordinate;
+                            points.nodenumber = data.nodenumber;
+                        case 'hydra'
+                            points.x_coordinate = data.Points_0;
+                            points.y_coordinate = data.Points_1;
+                            points.nodenumber = 1:size(data,1);
+                    end
+                    nodes = mesh2nodes(blk,points);
+                end
 
                 if nargin < 8 || renorm == false
                     tref = 1;
@@ -167,8 +169,8 @@ classdef RANSSlice < aveSlice
                 obj.mut_store = mut;
                 obj.StR_store = StR;
                 %clear nodes
+                obj.getBCs(blk.inlet_blocks{1});
             end
-            obj.getBCs(blk.inlet_blocks{1});
         end
 
 %         function value = get.p(obj)
@@ -260,6 +262,10 @@ classdef RANSSlice < aveSlice
 
         function obj.set_mut(obj, value)
             obj.mut_store = value;
+        end
+
+        function value = get_mut(obj)
+            value = obj.mut_store;
         end
             
         
