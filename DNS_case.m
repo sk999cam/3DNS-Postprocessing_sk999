@@ -704,7 +704,7 @@ classdef DNS_case < handle
         end
                 
 
-        function kContour(obj,slice,prop,ax,levels,label,fmt,linew,falpha)
+        function kContour(obj,slice,prop,ax,levels,label,fmt,linew)
             
             if nargin < 4 || isempty(ax)
                 ax = gca;
@@ -715,9 +715,9 @@ classdef DNS_case < handle
             if nargin < 8 || isempty(linew)
                 linew = 0.2;
             end
-            if nargin < 9 || isempty(falpha)
-                falpha = 1.0;
-            end
+%             if nargin < 9 || isempty(falpha)
+%                 falpha = 1.0;
+%             end
             %slice
             if isempty(slice)
                 disp('here')
@@ -727,11 +727,8 @@ classdef DNS_case < handle
             end
             hold on
             for i=1:slice.NB
-                s = contour(ax, obj.blk.x{i}, obj.blk.y{i}, q{i}, levels, 'k', 'LineWidth', linew, 'EdgeAlpha', falpha);
+                s = contour(ax, obj.blk.x{i}, obj.blk.y{i}, q{i}, levels, 'k', 'LineWidth', linew);
             end
-            shading('interp')
-            axis([-0.6 2 -0.5 0.5])
-            axis equal
             if string(prop) == "schlieren"
                 if nargin < 6
                     %label = '$|\nabla \rho|/\rho$';

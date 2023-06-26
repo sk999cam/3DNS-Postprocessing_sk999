@@ -1,4 +1,4 @@
-function blkNodes = writeCascadeFluentMesh(path, blk, next_block, next_patch, iWrite)
+function blkNodes = writeFluentMesh(path, blk, next_block, next_patch, boundaries, iWrite)
 
     if nargin < 5
         iWrite = true;
@@ -10,6 +10,15 @@ function blkNodes = writeCascadeFluentMesh(path, blk, next_block, next_patch, iW
     ip_assigned(1:NB) = false;
     jm_assigned(1:NB) = false;
     jp_assigned(1:NB) = false;
+
+    % Set boundary zones to exclude from boarder node and face sharing
+%     for b = 1:length(boundaries)
+%         for n = 1:length(boundaries{b}.blocks)
+%             ib = boundaries{b}.blocks(n);
+%             p = boundaries{b}.patches(n);
+%             boundary_zone(ib,p) = true;
+%         end
+%     end
     
     nodes = [];
     faces = [];
@@ -80,76 +89,50 @@ function blkNodes = writeCascadeFluentMesh(path, blk, next_block, next_patch, iW
     ip_assigned(1:NB) = false;
     jm_assigned(1:NB) = false;
     jp_assigned(1:NB) = false;
-    boundary_zone(1:NB,1:4) = false;
+    boundary_zone(1:NB,1:4) = 0;
 
-    % Inlet
-    inlet_faces(1)=nfaces;
-    for ib = [1 2]
-        for j = 1:size(blk.x{ib},2)-1
-%             faces(nfaces).n1 = blk.nodes{ib}(1,j);
-%             faces(nfaces).n2 = blk.nodes{ib}(1,j+1);
-            blk.ifaces{ib}(1,j) = nfaces;
-            faces(nfaces).bc = 4;
-            nfaces = nfaces+1;
-            
-        end
-        boundary_zone(ib,1) = true;
-    end
-    inlet_faces(2)=nfaces-1;
+    for b = 1:length(boundaries)
+        boundaries{b}.nStart = nfaces;
+        for n = 1:length(boundaries{b}.blocks)
+            ib = boundaries{b}.blocks(n);
+            p = boundaries{b}.patches(n);
+            boundary_zone(ib,p) = b;
 
-    % Upper periodic
-    uPer_faces(1)=nfaces;
-    for ib = [1 5 8]
-        for i = 1:size(blk.x{ib},1)-1
-%             faces(nfaces).n1 = blk.nodes{ib}(i,end);
-%             faces(nfaces).n2 = blk.nodes{ib}(i+1,end);
-            blk.jfaces{ib}(i,end) = nfaces;
-            faces(nfaces).bc = 5;
-            nfaces = nfaces+1;
-        end
-        boundary_zone(ib,4) = true;
-    end
-    uPer_faces(2)=nfaces-1;
+            % BCs:
+            % 3: Wall
+            % 4: Pressure inlet
+            % 5: Pressure outlet
+            % 12: Periodic
+            % 8: Periodic shadow
 
-    % Lower periodic
-    lPer_faces(1)=nfaces;
-    for ib = [2 6 9]
-        for i = 1:size(blk.x{ib},1)-1
-%             faces(nfaces).n1 = blk.nodes{ib}(i,1);
-%             faces(nfaces).n2 = blk.nodes{ib}(i+1,1);
-            blk.jfaces{ib}(i,1) = nfaces;
-            faces(nfaces).bc = 5;
-            nfaces = nfaces+1;
+            if p == 1
+                for j = 1:size(blk.x{ib},2)-1
+                    blk.ifaces{ib}(1,j) = nfaces;
+                    faces(nfaces).bc = boundaries{b}.type;
+                    nfaces = nfaces+1;
+                end
+            elseif p == 2
+                for j = 1:size(blk.x{ib},2)-1
+                    blk.ifaces{ib}(end,j) = nfaces;
+                    faces(nfaces).bc = boundaries{b}.type;
+                    nfaces = nfaces+1;
+                end
+            elseif p == 3
+                for i = 1:size(blk.x{ib},1)-1
+                    blk.jfaces{ib}(i,1) = nfaces;
+                    faces(nfaces).bc = boundaries{b}.type;
+                    nfaces = nfaces+1;
+                end
+            else
+                for i = 1:size(blk.x{ib},1)-1
+                    blk.jfaces{ib}(i,end) = nfaces;
+                    faces(nfaces).bc = boundaries{b}.type;
+                    nfaces = nfaces+1;
+                end
+            end
         end
-        boundary_zone(ib,3) = true;
+        boundaries{b}.nEnd = nfaces-1;
     end
-    lPer_faces(2)=nfaces-1;
-
-    % Outlet
-    outlet_faces(1)=nfaces;
-    for ib = [8 9]
-        for j = 1:size(blk.x{ib},2)-1
-%             faces(nfaces).n1 = blk.nodes{ib}(end,j);
-%             faces(nfaces).n2 = blk.nodes{ib}(end,j+1);
-            blk.ifaces{ib}(end,j) = nfaces;
-            faces(nfaces).bc = 5;
-            nfaces = nfaces+1;
-        end
-        boundary_zone(ib,2) = true;
-    end
-    outlet_faces(2)=nfaces-1;
-
-    % Blade
-    blade_faces(1)=nfaces;
-    for ib = [3 4 5 7]
-        for i = 1:size(blk.x{ib},1)-1
-                blk.jfaces{ib}(i,end) = nfaces;
-                faces(nfaces).bc = 3;
-                nfaces = nfaces+1;
-        end
-        boundary_zone(ib,4) = true;
-    end
-    blade_faces(2)=nfaces-1;
 
     for ib = 1:NB
         fprintf('Calculating block %d/%d\n',ib,NB)
@@ -159,7 +142,7 @@ function blkNodes = writeCascadeFluentMesh(path, blk, next_block, next_patch, iW
         end
 
         % Set remaining boarder faces
-        if ~boundary_zone(ib,1)
+        if boundary_zone(ib,1) == 0
             if ~im_assigned(ib)
                 for j = 1:nj-1
                     blk.ifaces{ib}(1,j) = nfaces;
@@ -171,7 +154,7 @@ function blkNodes = writeCascadeFluentMesh(path, blk, next_block, next_patch, iW
             end
         end
 
-        if ~boundary_zone(ib,2)
+        if boundary_zone(ib,2) == 0
             if ~ip_assigned(ib)
                 for j = 1:nj-1
                     blk.ifaces{ib}(end,j) = nfaces;
@@ -183,7 +166,7 @@ function blkNodes = writeCascadeFluentMesh(path, blk, next_block, next_patch, iW
             end
         end
 
-        if ~boundary_zone(ib,3)
+        if boundary_zone(ib,3) == 0
             if ~jm_assigned(ib)
                 for i = 1:ni-1
                     blk.jfaces{ib}(i,1) = nfaces;
@@ -195,7 +178,7 @@ function blkNodes = writeCascadeFluentMesh(path, blk, next_block, next_patch, iW
             end
         end
 
-        if ~boundary_zone(ib,4)
+        if boundary_zone(ib,4) == 0
             if ~jp_assigned(ib)
                 for i = 1:ni-1
                     blk.jfaces{ib}(i,end) = nfaces;
@@ -225,45 +208,45 @@ function blkNodes = writeCascadeFluentMesh(path, blk, next_block, next_patch, iW
         end
 
         % Now get face nodes and cells
-        
-        % i faces
-        r1 = [blk.x{ib}(1,2) - blk.x{ib}(1,1); ...
-            blk.y{ib}(1,2) - blk.y{ib}(1,1); 0];
-        r2 = [blk.x{ib}(2,1) - blk.x{ib}(1,1); ...
+
+        r1 = [blk.x{ib}(2,1) - blk.x{ib}(1,1); ...
             blk.y{ib}(2,1) - blk.y{ib}(1,1); 0];
+        r2 = [blk.x{ib}(1,2) - blk.x{ib}(1,1); ...
+            blk.y{ib}(1,2) - blk.y{ib}(1,1); 0];
         k = [0; 0; 1];
-        n = cross(k,r);
         swap = false;
-        if dot(n,r2) > 0
+        if dot(k,cross(r1,r2)) < 0
             swap = true;
         end
+        
+        % i faces
 
         for i=1:ni
-            mcells = zeros(1,nj-1);
-            pcells = zeros(1,nj-1);
+            rcells = zeros(1,nj-1);
+            lcells = zeros(1,nj-1);
             if i==1
-                mcells = getBoarderCells(ib, 'im');
-                pcells = blk.cells{ib}(i,:);
+                rcells = getBoarderCells(ib, 'im');
+                lcells = blk.cells{ib}(i,:);
             elseif i==ni
-                mcells = blk.cells{ib}(i-1,:);
-                pcells = getBoarderCells(ib, 'ip');
+                rcells = blk.cells{ib}(i-1,:);
+                lcells = getBoarderCells(ib, 'ip');
             else
-                mcells = blk.cells{ib}(i-1,:);
-                pcells = blk.cells{ib}(i,:);
+                rcells = blk.cells{ib}(i-1,:);
+                lcells = blk.cells{ib}(i,:);
             end
 
             if swap
-                tmp = mcells;
-                mcells = pcells;
-                pcells = tmp;
+                tmp = rcells;
+                rcells = lcells;
+                lcells = tmp;
             end
 
             for j=1:nj-1
                 n = blk.ifaces{ib}(i,j);
                 faces(n).n1 = blk.nodes{ib}(i,j);
                 faces(n).n2 = blk.nodes{ib}(i,j+1);
-                faces(n).cr = mcells(j);
-                faces(n).cl = pcells(j);
+                faces(n).cr = rcells(j);
+                faces(n).cl = lcells(j);
                 if faces(n).bc == 0
                     faces(n).bc = 2;
                 end
@@ -271,49 +254,90 @@ function blkNodes = writeCascadeFluentMesh(path, blk, next_block, next_patch, iW
         end
 
         % j faces
-        r1 = [blk.x{ib}(2,1) - blk.x{ib}(1,1); ...
-            blk.y{ib}(2,1) - blk.y{ib}(1,1); 0];
-        r2 = [blk.x{ib}(1,2) - blk.x{ib}(1,1); ...
-            blk.y{ib}(1,2) - blk.y{ib}(1,1); 0];
-        k = [0; 0; 1];
-        n = cross(k,r);
-        swap = false;
-        if dot(n,r2) < 0
-            swap = true;
-        end
+
         for j=1:nj
-            mcells = zeros(1,nj-1);
-            pcells = zeros(1,nj-1);
+            rcells = zeros(1,nj-1);
+            lcells = zeros(1,nj-1);
             if j==1
-                mcells = blk.cells{ib}(:,j);
-                pcells = getBoarderCells(ib, 'jm');
+                rcells = blk.cells{ib}(:,j);
+                lcells = getBoarderCells(ib, 'jm');
             elseif j==nj
-                mcells = getBoarderCells(ib, 'jp');
-                pcells = blk.cells{ib}(:,j-1);
+                rcells = getBoarderCells(ib, 'jp');
+                lcells = blk.cells{ib}(:,j-1);
             else
-                mcells = blk.cells{ib}(:,j);
-                pcells = blk.cells{ib}(:,j-1);
+                rcells = blk.cells{ib}(:,j);
+                lcells = blk.cells{ib}(:,j-1);
             end
 
             if swap
-                tmp = mcells;
-                mcells = pcells;
-                pcells = tmp;
+                tmp = rcells;
+                rcells = lcells;
+                lcells = tmp;
             end
 
             for i=1:ni-1
                 n = blk.jfaces{ib}(i,j);
-                if n == 4
-                    n
-                end
                 faces(n).n1 = blk.nodes{ib}(i,j);
                 faces(n).n2 = blk.nodes{ib}(i+1,j);
-                faces(n).cr = mcells(i);
-                faces(n).cl = pcells(i);
+                faces(n).cr = rcells(i);
+                faces(n).cl = lcells(i);
                 if faces(n).bc == 0
                     faces(n).bc = 2;
                 end
             end
+        end
+    end
+
+    % Match periodic faces with shadow zone faces
+
+    npairs = 1;
+    for b = 1:length(boundaries)
+        if boundaries{b}.type == 12
+            ib = boundaries{b}.blocks(1);
+            p = boundaries{b}.patches(1);
+            switch p
+                case 1
+                    dr = 'im';
+                case 2
+                    dr = 'ip';
+                case 3
+                    dr = 'jm';
+                case 4
+                    dr = 'jp';
+            end
+            
+            shadow_boundary = boundary_zone(next_block{ib}.(dr),...
+                next_patch{ib}.(dr));
+            boundaries{b}.shadow_boundary = shadow_boundary;
+            boundaries{shadow_boundary}.type = 8;
+            boundaries{b}.nPairsStart = npairs;
+
+            for n = 1:length(boundaries{b}.blocks)
+                ib = boundaries{b}.blocks(n);
+                p = boundaries{b}.patches(n);
+                switch p
+                    case 1
+                        dr = 'im';
+                        per_faces = blk.ifaces{ib}(1,:);
+                    case 2
+                        dr = 'ip';
+                        per_faces = blk.ifaces{ib}(end,:);
+                    case 3
+                        dr = 'jm';
+                        per_faces = blk.jfaces{ib}(:,1);
+                    case 4
+                        dr = 'jp';
+                        per_faces = blk.jfaces{ib}(:,end);
+                end
+                shadow_faces = getBoarderFaces(ib, dr);
+                for i = 1:length(per_faces)
+                    pairs(npairs).face = per_faces(i);
+                    pairs(npairs).shadow_face = shadow_faces(i);
+                    npairs = npairs+1;
+                end
+            end
+            boundaries{b}.nPairsEnd = npairs-1;
+
         end
     end
 
@@ -326,7 +350,7 @@ function blkNodes = writeCascadeFluentMesh(path, blk, next_block, next_patch, iW
     if iWrite
         
         path
-        fid = fopen(path,'w')
+        fid = fopen(path,'w');
     
         fprintf(fid,'(0 "Grid:")\n');
         fprintf(fid,'\n');
@@ -351,53 +375,49 @@ function blkNodes = writeCascadeFluentMesh(path, blk, next_block, next_patch, iW
         fprintf(fid, '\n');
     
         fprintf(fid,'(0 "Interior:")\n');
-        fprintf(fid,'(13 (2 %X %X %X 2)(\n', [outlet_faces(2)+1 length(faces) 2]);
-        for n=(outlet_faces(2)+1):length(faces)
+        fprintf(fid,'(13 (2 %X %X %X 2)(\n', [boundaries{end}.nEnd+1 length(faces) 2]);
+        for n=(boundaries{end}.nEnd+1):length(faces)
             fprintf(fid,'%X %X %X %X\n',[faces(n).n1 faces(n).n2 faces(n).cr faces(n).cl]);
         end
         fprintf(fid, '))\n');
         fprintf(fid, '\n');
-    
-        fprintf(fid,'(0 "Inlet:")\n');
-        fprintf(fid,'(13 (3 %X %X %X 2)(\n', [inlet_faces(1) inlet_faces(2) 4]);
-        for n=inlet_faces(1):inlet_faces(2)
-            fprintf(fid,'%X %X %X %X\n',[faces(n).n1 faces(n).n2 faces(n).cr faces(n).cl]);
+
+        nZones = 2;
+        for ib = 1:length(boundaries)
+            b = boundaries{ib};
+            nZones = nZones+1;
+            boundaries{ib}.nZone = nZones;
+            fprintf(fid,'(0 "%s:")\n', b.label);
+            fprintf(fid,'(13 (%d %X %X %X 2)(\n', ...
+                [nZones b.nStart b.nEnd b.type]);
+            for n=b.nStart:b.nEnd
+                if faces(n).cr == 0
+                    fprintf(fid,'%X %X %X %X\n',[faces(n).n2 faces(n).n1 faces(n).cl faces(n).cr]);
+                else
+                    fprintf(fid,'%X %X %X %X\n',[faces(n).n1 faces(n).n2 faces(n).cr faces(n).cl]);
+                end
+            end
+            fprintf(fid, '))\n');
+            fprintf(fid, '\n');
         end
-        fprintf(fid, '))\n');
-        fprintf(fid, '\n');
-    
-        fprintf(fid,'(0 "Upper periodic:")\n');
-        fprintf(fid,'(13 (4 %X %X %X 2)(\n', [uPer_faces(1) uPer_faces(2) 5]);
-        for n=uPer_faces(1):uPer_faces(2)
-            fprintf(fid,'%X %X %X %X\n',[faces(n).n1 faces(n).n2 faces(n).cr faces(n).cl]);
+
+        for ib = 1:length(boundaries)
+            b = boundaries{ib};
+            if b.type == 12  % Periodic zone
+                periodicZone = b.nZone;
+                shadowZone = boundaries{b.shadow_boundary}.nZone;
+                fprintf(fid,'(0 "%s shadow zone:")\n', b.label);
+                fprintf(fid,'(18 (%X %X %X %X)(\n', ...
+                [b.nPairsStart b.nPairsEnd ...
+                periodicZone shadowZone]);
+                for n=b.nPairsStart:b.nPairsEnd
+                    fprintf(fid,'%X %X\n',[pairs(n).face pairs(n).shadow_face]);
+                end
+                fprintf(fid, '))\n');
+                fprintf(fid, '\n');
+            end
         end
-        fprintf(fid, '))\n');
-        fprintf(fid, '\n');
-    
-        fprintf(fid,'(0 "Lower periodic:")\n');
-        fprintf(fid,'(13 (5 %X %X %X 2)(\n', [lPer_faces(1) lPer_faces(2) 5]);
-        for n=lPer_faces(1):lPer_faces(2)
-            fprintf(fid,'%X %X %X %X\n',[faces(n).n1 faces(n).n2 faces(n).cr faces(n).cl]);
-        end
-        fprintf(fid, '))\n');
-        fprintf(fid, '\n');
-    
-        fprintf(fid,'(0 "Outlet:")\n');
-        fprintf(fid,'(13 (6 %X %X %X 2)(\n', [outlet_faces(1) outlet_faces(2) 5]);
-        for n=outlet_faces(1):outlet_faces(2)
-            fprintf(fid,'%X %X %X %X\n',[faces(n).n1 faces(n).n2 faces(n).cr faces(n).cl]);
-        end
-        fprintf(fid, '))\n');
-        fprintf(fid, '\n');
-    
-        fprintf(fid,'(0 "Blade:")\n');
-        fprintf(fid,'(13 (7 %X %X %X 2)(\n', [blade_faces(1) blade_faces(2) 3]);
-        for n=blade_faces(1):blade_faces(2)
-            %fprintf('%d, n1: %d %X, n2: %d %X, cr: %d %X, cl: %d %X\n', [n faces(n).n1 faces(n).n1 faces(n).n2 faces(n).n2 faces(n).cr faces(n).cr faces(n).cl faces(n).cl])
-            fprintf(fid,'%X %X %X %X\n',[faces(n).n1 faces(n).n2 faces(n).cr faces(n).cl]);
-        end
-        fprintf(fid, '))\n');
-        fprintf(fid, '\n');
+        
     
         fprintf(fid,'(10 (1 %X %X 1 2)\n(\n',[1 length(nodes)]);
         for i=1:length(nodes)
@@ -442,7 +462,7 @@ function blkNodes = writeCascadeFluentMesh(path, blk, next_block, next_patch, iW
         if nblk > NB
             nblk = 0;
         end
-        if nblk == 0
+        if (nblk == 0) || is_periodic(ib, dr)
             [nib, njb] = size(blk.x{ib});
             switch dr
                 case {'im','ip'}
@@ -470,7 +490,7 @@ function blkNodes = writeCascadeFluentMesh(path, blk, next_block, next_patch, iW
         if nblk > NB
             nblk = 0;
         end
-        if nblk ~= 0
+        if nblk ~= 0 && ~is_periodic(ib, dr)
             nptch = next_patch{ib}.(dr);
             switch nptch
                 case 1
@@ -484,5 +504,47 @@ function blkNodes = writeCascadeFluentMesh(path, blk, next_block, next_patch, iW
             end
         end
     end
+
+    function periodic = is_periodic(ib, dr)
+        nblk = next_block{ib}.(dr);
+        nptch = next_patch{ib}.(dr);
+        if nblk ~= 0
+            switch dr
+                case 'im'
+                    x1 = blk.x{ib}(1,1);
+                    y1 = blk.y{ib}(1,1);
+                case 'ip'
+                    x1 = blk.x{ib}(end,1);
+                    y1 = blk.y{ib}(end,1);
+                case 'jm'
+                    x1 = blk.x{ib}(1,1);
+                    y1 = blk.y{ib}(1,1);
+                case 'jp'
+                    x1 = blk.x{ib}(1,end);
+                    y1 = blk.y{ib}(1,end);
+            end
+            switch nptch
+                case 1
+                    x2 = blk.x{nblk}(1,1);
+                    y2 = blk.y{nblk}(1,1);
+                case 2
+                    x2 = blk.x{nblk}(end,1);
+                    y2 = blk.y{nblk}(end,1);
+                case 3
+                    x2 = blk.x{nblk}(1,1);
+                    y2 = blk.y{nblk}(1,1);
+                case 4
+                    x2 = blk.x{nblk}(1,end);
+                    y2 = blk.y{nblk}(1,end);
+            end
+        end
+
+        if (nblk ~= 0) && ((x1 ~= x2) || (y1 ~= y2))
+            periodic = true;
+        else
+            periodic = false;
+        end
+    end
+
 
 end
