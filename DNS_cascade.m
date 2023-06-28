@@ -1,9 +1,8 @@
 classdef DNS_cascade < DNS_case
-    %DNS_CHANNEL Subclass of DNS_case contaning methods and properties
-    ... specific to channel flow cases
+    %DNS_CASCADE Subclass of DNS_case contaning methods and properties
+    ... specific to cascade cases
 
     properties
-        pitch;
     end
 
     properties (Dependent = true)

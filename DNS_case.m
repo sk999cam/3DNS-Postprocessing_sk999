@@ -41,6 +41,7 @@ classdef DNS_case < handle
         cell_area = [];
         if_rans;
         speed_up;
+        pitch;
     end
 
     properties (Dependent = true)
