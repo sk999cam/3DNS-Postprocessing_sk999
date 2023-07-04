@@ -1,4 +1,4 @@
-function blkNodes = writeFluentMeshExtruded(path, blk, next_block, next_patch, nk, span, iWrite)
+function blkNodes = writeFluentMeshExtrudedGeneral(path, blk, next_block, next_patch, boundaries, nk, span, iWrite)
 
     if nargin < 7
         iWrite = true;
@@ -88,114 +88,67 @@ function blkNodes = writeFluentMeshExtruded(path, blk, next_block, next_patch, n
     ip_assigned(1:NB) = false;
     jm_assigned(1:NB) = false;
     jp_assigned(1:NB) = false;
-    boundary_zone(1:NB,1:4) = false;
+    boundary_zone(1:NB,1:6) = 0;
 
-    % Inlet
-    inlet_faces(1)=nfaces;
-    for ib = [1 2 3]
-        for k=1:nk-1
-            for j = 1:size(blk.x{ib},2)-1
-    %             faces(nfaces).n1 = blk.nodes{ib}(1,j);
-    %             faces(nfaces).n2 = blk.nodes{ib}(1,j+1);
-                blk.ifaces{ib}(1,j,k) = nfaces;
-                faces(nfaces).bc = 4;
-                if nfaces == 60
-                    disp('')
+    for b = 1:length(boundaries)
+        boundaries{b}.nStart = nfaces;
+        for n = 1:length(boundaries{b}.blocks)
+            ib = boundaries{b}.blocks(n);
+            p = boundaries{b}.patches(n);
+            boundary_zone(ib,p) = b;
+
+            % BCs:
+            % 3: Wall
+            % 4: Pressure inlet
+            % 5: Pressure outlet
+            % 12: Periodic
+            % 8: Periodic shadow
+
+            if p == 1
+                for k=1:nk-1
+                    for j = 1:size(blk.x{ib},2)-1
+                        blk.ifaces{ib}(1,j,k) = nfaces;
+                        faces(nfaces).bc = boundaries{b}.type;
+                        nfaces = nfaces+1;
+                    end
                 end
-                nfaces = nfaces+1;
-                
-            end
-        end
-        boundary_zone(ib,1) = true;
-    end
-    inlet_faces(2)=nfaces-1;
-
-    % Upper freestream
-    uPer_faces(1)=nfaces;
-    for ib = [3 8 12]
-        for k=1:nk-1
-            for i = 1:size(blk.x{ib},1)-1
-    %             faces(nfaces).n1 = blk.nodes{ib}(i,end);
-    %             faces(nfaces).n2 = blk.nodes{ib}(i+1,end);
-                blk.jfaces{ib}(i,end,k) = nfaces;
-                faces(nfaces).bc = 5;
-                nfaces = nfaces+1;
-            end
-        end
-        boundary_zone(ib,4) = true;
-    end
-    uPer_faces(2)=nfaces-1;
-
-    % Lower freestream
-    lPer_faces(1)=nfaces;
-    for ib = [2 7 11]
-        for k=1:nk-1
-            for i = 1:size(blk.x{ib},1)-1
-    %             faces(nfaces).n1 = blk.nodes{ib}(i,1);
-    %             faces(nfaces).n2 = blk.nodes{ib}(i+1,1);
-                blk.jfaces{ib}(i,1,k) = nfaces;
-                faces(nfaces).bc = 5;
-                nfaces = nfaces+1;
-            end
-        end
-        boundary_zone(ib,3) = true;
-    end
-    lPer_faces(2)=nfaces-1;
-
-    % Outlet
-    outlet_faces(1)=nfaces;
-    for ib = [10 11 12]
-        for k=1:nk-1
-            for j = 1:size(blk.x{ib},2)-1
-    %             faces(nfaces).n1 = blk.nodes{ib}(end,j);
-    %             faces(nfaces).n2 = blk.nodes{ib}(end,j+1);
-                blk.ifaces{ib}(end,j,k) = nfaces;
-                faces(nfaces).bc = 5;
-                nfaces = nfaces+1;
-            end
-        end
-        boundary_zone(ib,2) = true;
-    end
-    outlet_faces(2)=nfaces-1;
-
-    % Blade
-    upper_blade_faces(1)=nfaces;
-    nLowerFaces = 0;
-    lower_faces = [];
-    for ib = [4 5 6 9]
-        for k=1:nk-1
-            for i = 1:size(blk.x{ib},1)-1
-    %             faces(nfaces).n1 = blk.nodes{ib}(i,end);
-    %             faces(nfaces).n2 = blk.nodes{ib}(i+1,end);
-                midpoint = (blk.y{ib}(i,end)+blk.y{ib}(i+1,end))/2;
-                if midpoint > 0
-                    blk.jfaces{ib}(i,end,k) = nfaces;
-                    faces(nfaces).bc = 3;
-                    nfaces = nfaces+1;
-                else
-                    nLowerFaces = nLowerFaces + 1;
-                    lower_faces(nLowerFaces,:) = [ib i k];
+            elseif p == 2
+                for k=1:nk-1
+                    for j = 1:size(blk.x{ib},2)-1
+                        blk.ifaces{ib}(end,j,k) = nfaces;
+                        faces(nfaces).bc = boundaries{b}.type;
+                        nfaces = nfaces+1;
+                    end
                 end
-    
+            elseif p == 3
+                for k=1:nk-1
+                    for i = 1:size(blk.x{ib},1)-1
+                        blk.jfaces{ib}(i,1,k) = nfaces;
+                        faces(nfaces).bc = boundaries{b}.type;
+                        nfaces = nfaces+1;
+                    end
+                end
+            else
+                for k=1:nk-1
+                    for i = 1:size(blk.x{ib},1)-1
+                        blk.jfaces{ib}(i,end,k) = nfaces;
+                        faces(nfaces).bc = boundaries{b}.type;
+                        nfaces = nfaces+1;
+                    end
+                end
             end
         end
-        boundary_zone(ib,4) = true;
+        boundaries{b}.nEnd = nfaces-1;
     end
-    upper_blade_faces(2)=nfaces-1;
-    
-    lower_blade_faces(1)=nfaces;
-    for iface=1:nLowerFaces
-        blk.jfaces{lower_faces(iface,1)}(lower_faces(iface,2),end,lower_faces(iface,3)) = nfaces;
-        faces(nfaces).bc = 3;
-        nfaces = nfaces+1;
-    end
-    lower_blade_faces(2)=nfaces-1;
-
-    
 
     % zm peroiodic
-    zm_faces(1) = nfaces;
-    for ib = 1:12
+    boundaries{end+1}.nStart = nfaces;
+    for ib = 1:NB
+        boundary_zone(ib,5) = length(boundaries);
+        next_block{ib}.km = ib;
+        next_block{ib}.kp = ib;
+        next_patch{ib}.km = 6;
+        next_patch{ib}.kp = 5;
         for i = 1:size(blk.x{ib},1)-1
             for j = 1:size(blk.x{ib},2)-1
     %             faces(nfaces).n1 = blk.nodes{ib}(end,j);
@@ -206,11 +159,17 @@ function blkNodes = writeFluentMeshExtruded(path, blk, next_block, next_patch, n
             end
         end
     end
-    zm_faces(2)=nfaces-1;
+    boundaries{end}.label = "km Periodic";
+    boundaries{end}.type = 12;
+    boundaries{end}.blocks = 1:NB;
+    boundaries{end}.patches(1:NB) = 5;
+    boundaries{end}.nEnd = nfaces-1;
+    
 
     % zp peroiodic
-    zp_faces(1) = nfaces;
-    for ib = 1:12
+    boundaries{end+1}.nStart = nfaces;
+    for ib = 1:NB
+        boundary_zone(ib,6) = length(boundaries);
         for i = 1:size(blk.x{ib},1)-1
             for j = 1:size(blk.x{ib},2)-1
     %             faces(nfaces).n1 = blk.nodes{ib}(end,j);
@@ -221,7 +180,11 @@ function blkNodes = writeFluentMeshExtruded(path, blk, next_block, next_patch, n
             end
         end
     end
-    zp_faces(2)=nfaces-1;
+    boundaries{end}.label = "kp Periodic";
+    boundaries{end}.type = 8;
+    boundaries{end}.blocks = 1:NB;
+    boundaries{end}.patches(1:NB) = 6;
+    boundaries{end}.nEnd = nfaces-1;
 
 
     for ib = 1:NB
@@ -232,7 +195,7 @@ function blkNodes = writeFluentMeshExtruded(path, blk, next_block, next_patch, n
         end
 
         % Set remaining boarder faces
-        if ~boundary_zone(ib,1)
+        if boundary_zone(ib,1) == 0
             if ~im_assigned(ib)
                 for k=1:nk-1
                     for j = 1:nj-1
@@ -246,7 +209,7 @@ function blkNodes = writeFluentMeshExtruded(path, blk, next_block, next_patch, n
             end
         end
 
-        if ~boundary_zone(ib,2)
+        if boundary_zone(ib,2) == 0
             if ~ip_assigned(ib)
                 for k=1:nk-1
                     for j = 1:nj-1
@@ -260,7 +223,7 @@ function blkNodes = writeFluentMeshExtruded(path, blk, next_block, next_patch, n
             end
         end
 
-        if ~boundary_zone(ib,3)
+        if boundary_zone(ib,3) == 0
             if ~jm_assigned(ib)
                 for k=1:nk-1
                     for i = 1:ni-1
@@ -274,7 +237,7 @@ function blkNodes = writeFluentMeshExtruded(path, blk, next_block, next_patch, n
             end
         end
 
-        if ~boundary_zone(ib,4)
+        if boundary_zone(ib,4) == 0
             if ~jp_assigned(ib)
                 for k=1:nk-1
                     for i = 1:ni-1
@@ -295,9 +258,6 @@ function blkNodes = writeFluentMeshExtruded(path, blk, next_block, next_patch, n
             for i=2:ni-1
                 for j=1:nj-1
                     blk.ifaces{ib}(i,j,k) = nfaces;
-                    if nfaces == 605942
-                        pause
-                    end
                     nfaces = nfaces+1;
                 end
             end
@@ -307,9 +267,6 @@ function blkNodes = writeFluentMeshExtruded(path, blk, next_block, next_patch, n
             for j=2:nj-1
                 for i=1:ni-1
                     blk.jfaces{ib}(i,j,k) = nfaces;
-                    if nfaces == 605942
-                        pause
-                    end
                     nfaces = nfaces+1;
                 end
             end
@@ -319,9 +276,6 @@ function blkNodes = writeFluentMeshExtruded(path, blk, next_block, next_patch, n
             for j=1:nj-1
                 for i=1:ni-1
                     blk.kfaces{ib}(i,j,k) = nfaces;
-                    if nfaces == 605942
-                        pause
-                    end
                     nfaces = nfaces+1;
                 end
             end
@@ -330,6 +284,15 @@ function blkNodes = writeFluentMeshExtruded(path, blk, next_block, next_patch, n
         % Now get face nodes and cells
         
         % i faces
+        r1 = [blk.x{ib}(2,1) - blk.x{ib}(1,1); ...
+            blk.y{ib}(2,1) - blk.y{ib}(1,1); 0];
+        r2 = [blk.x{ib}(1,2) - blk.x{ib}(1,1); ...
+            blk.y{ib}(1,2) - blk.y{ib}(1,1); 0];
+        r3 = [0; 0; zv(2)-zv(1)];
+        swap = false;
+        if(dot(cross(r1,r2),r3)) < 0
+            swap = true;
+        end
         for i=1:ni
             mcells = zeros(1,nj-1,nk-1);
             pcells = zeros(1,nj-1,nk-1);
@@ -344,7 +307,7 @@ function blkNodes = writeFluentMeshExtruded(path, blk, next_block, next_patch, n
                 pcells = blk.cells{ib}(i,:,:);
             end
 
-            if ismember(ib, [4 6])
+            if swap
                 tmp = mcells;
                 mcells = pcells;
                 pcells = tmp;
@@ -370,6 +333,15 @@ function blkNodes = writeFluentMeshExtruded(path, blk, next_block, next_patch, n
         end
 
         % j faces
+%         r1 = [blk.x{ib}(2,1) - blk.x{ib}(1,1); ...
+%             blk.y{ib}(2,1) - blk.y{ib}(1,1); 0];
+%         r2 = [blk.x{ib}(1,2) - blk.x{ib}(1,1); ...
+%             blk.y{ib}(1,2) - blk.y{ib}(1,1); 0];
+%         r3 = [0; 0; zv(2)-zv(1)];
+%         swap = false;
+        if(dot(cross(r1,r2),r3)) < 0
+            swap = true;
+        end
         for j=1:nj
             mcells = zeros(ni-1,1,nk-1);
             pcells = zeros(ni-1,1,nk-1);
@@ -384,7 +356,7 @@ function blkNodes = writeFluentMeshExtruded(path, blk, next_block, next_patch, n
                 pcells = blk.cells{ib}(:,j-1,:);
             end
 
-            if ismember(ib, [4 6])
+            if swap
                 tmp = mcells;
                 mcells = pcells;
                 pcells = tmp;
@@ -424,7 +396,7 @@ function blkNodes = writeFluentMeshExtruded(path, blk, next_block, next_patch, n
                 mcells = blk.cells{ib}(:,:,k-1);
             end
 
-            if ismember(ib, [4 6])
+            if swap
                 tmp = mcells;
                 mcells = pcells;
                 pcells = tmp;
@@ -453,13 +425,90 @@ function blkNodes = writeFluentMeshExtruded(path, blk, next_block, next_patch, n
         end
     end
 
+    % Match periodic faces with shadow zone faces
+
+    npairs = 1;
+    for b = 1:length(boundaries)
+        if boundaries{b}.type == 12
+            ib = boundaries{b}.blocks(1);
+            p = boundaries{b}.patches(1);
+            switch p
+                case 1
+                    dr = 'im';
+                case 2
+                    dr = 'ip';
+                case 3
+                    dr = 'jm';
+                case 4
+                    dr = 'jp';
+                case 5
+                    dr = 'km';
+                case 6
+                    dr = 'kp';
+            end
+            
+            shadow_boundary = boundary_zone(next_block{ib}.(dr),...
+                next_patch{ib}.(dr));
+            boundaries{b}.shadow_boundary = shadow_boundary;
+            boundaries{shadow_boundary}.type = 8;
+            boundaries{b}.nPairsStart = npairs;
+
+            for n = 1:length(boundaries{b}.blocks)
+                ib = boundaries{b}.blocks(n);
+                p = boundaries{b}.patches(n);
+                switch p
+                    case 1
+                        dr = 'im';
+                        per_faces = blk.ifaces{ib}(1,:,:);
+                    case 2
+                        dr = 'ip';
+                        per_faces = blk.ifaces{ib}(end,:,:);
+                    case 3
+                        dr = 'jm';
+                        per_faces = blk.jfaces{ib}(:,1,:);
+                    case 4
+                        dr = 'jp';
+                        per_faces = blk.jfaces{ib}(:,end,:);
+                    case 5
+                        dr = 'km';
+                        per_faces = blk.kfaces{ib}(:,:,1);
+                    case 6
+                        dr = 'kp';
+                        per_faces = blk.kfaces{ib}(:,:,end);
+
+                end
+
+                if p == 5
+                    shadow_faces = blk.kfaces{ib}(:,:,end);
+                elseif p == 6
+                    shadow_faces = blk.kfaces{ib}(:,:,1);
+                else
+                    shadow_faces = getBoarderFaces(ib, dr);
+                end
+
+                per_faces = squeeze(per_faces);
+                shadow_faces = squeeze(shadow_faces);
+                
+                for i = 1:size(per_faces,1)
+                    for j = 1:size(per_faces,2)
+                        pairs(npairs).face = per_faces(i,j);
+                        pairs(npairs).shadow_face = shadow_faces(i,j);
+                        npairs = npairs+1;
+                    end
+                end
+            end
+            boundaries{b}.nPairsEnd = npairs-1;
+
+        end
+    end
+
     fprintf('nnodes: %d, should be %d\n', length(nodes), ni*nj*nk)
     fprintf('ncells: %d, should be %d\n', ncells-1, ((ni-1)*(nj-1)*(nk-1)))
     fprintf('nfaces: %d, should be %d\n', length(faces), ((ni-1)*nj*(nk-1) + ni*(nj-1)*(nk-1) + (ni-1)*(nj-1)*nk))
 
     facesStr = cell(length(faces),1);
     nodesStr = cell(length(nodes),1);
-    shadowStr = cell(1+zp_faces(2)-zp_faces(1),1);
+    shadowStr = cell(1+boundaries{end}.nEnd-boundaries{end}.nStart,1);
 
     fprintf('Creating ASCII face information to write\n')
     parfor n=1:length(faces)
@@ -472,11 +521,11 @@ function blkNodes = writeFluentMeshExtruded(path, blk, next_block, next_patch, n
         nodesStr{n} = sprintf('%10.8f %10.8f %10.8f', [nodes(n).x nodes(n).y nodes(n).z]);
     end
 
-    fprintf('Creating ASCII shadow zone information\n')
-    parfor i=1:length(shadowStr)
-        n = i-1+zp_faces(1);
-        shadowStr{i} = sprintf('%X %X',[faces(n).sf n]);
-    end
+%     fprintf('Creating ASCII shadow zone information\n')
+%     for i=1:length(shadowStr)
+%         n = i-1+boundaries{end}.nStart;
+%         shadowStr{i} = sprintf('%X %X',[faces(n).sf n]);
+%     end
 
     blkNodes = blk.nodes;
 
@@ -507,112 +556,61 @@ function blkNodes = writeFluentMeshExtruded(path, blk, next_block, next_patch, n
         fprintf(fid,'(12 (b 1 %X 1 4))\n',ncells-1);
         fprintf(fid, '\n');
 
-        fprintf('Writing interior faces\n')
-        fprintf(fid,'(0 "Interior:")\n');
-        fprintf(fid,'(13 (2 %X %X %X 4)(\n', [zp_faces(2)+1 length(faces) 2]);
-%         for n=(zp_faces(2)+1):length(faces)
-%             fprintf(fid,'%X %X %X %X\n',[faces(n).n1 faces(n).n2, faces(n).n3 faces(n).n4, ...
-%                 faces(n).cr faces(n).cl]);
-%         end
-        fprintf(fid, '%s\n', facesStr{zp_faces(2)+1:end});
-        fprintf(fid, '))\n');
-        fprintf(fid, '\n');
-    
-        fprintf('Writing inlet faces\n')
-        fprintf(fid,'(0 "Inlet:")\n');
-        fprintf(fid,'(13 (3 %X %X %X 4)(\n', [inlet_faces(1) inlet_faces(2) 4]);
-%         for n=inlet_faces(1):inlet_faces(2)
-%             fprintf(fid,'%X %X %X %X\n',[faces(n).n1 faces(n).n2, faces(n).n3 faces(n).n4, ...
-%                 faces(n).cr faces(n).cl]);
-%         end
-        fprintf(fid, '%s\n', facesStr{inlet_faces(1):inlet_faces(2)});
-        fprintf(fid, '))\n');
-        fprintf(fid, '\n');
-        
-        fprintf('Writing upper freestream faces\n')
-        fprintf(fid,'(0 "Upper freestream:")\n');
-        fprintf(fid,'(13 (4 %X %X %X 4)(\n', [uPer_faces(1) uPer_faces(2) 5]);
-%         for n=uPer_faces(1):uPer_faces(2)
-%             fprintf(fid,'%X %X %X %X\n',[faces(n).n1 faces(n).n2, faces(n).n3 faces(n).n4, ...
-%                 faces(n).cr faces(n).cl]);
-%         end
-        fprintf(fid, '%s\n', facesStr{uPer_faces(1):uPer_faces(2)});
-        fprintf(fid, '))\n');
-        fprintf(fid, '\n');
-    
-        fprintf('Writing lower freestream faces\n')
-        fprintf(fid,'(0 "Lower freestream:")\n');
-        fprintf(fid,'(13 (5 %X %X %X 4)(\n', [lPer_faces(1) lPer_faces(2) 5]);
-%         for n=lPer_faces(1):lPer_faces(2)
-%             fprintf(fid,'%X %X %X %X\n',[faces(n).n1 faces(n).n2, faces(n).n3 faces(n).n4, ...
-%                 faces(n).cr faces(n).cl]);
-%         end
-        fprintf(fid, '%s\n', facesStr{lPer_faces(1):lPer_faces(2)});
-        fprintf(fid, '))\n');
-        fprintf(fid, '\n');
-    
-        fprintf('Writing outlet faces\n')
-        fprintf(fid,'(0 "Outlet:")\n');
-        fprintf(fid,'(13 (6 %X %X %X 4)(\n', [outlet_faces(1) outlet_faces(2) 5]);
-%         for n=outlet_faces(1):outlet_faces(2)
-%             fprintf(fid,'%X %X %X %X\n',[faces(n).n1 faces(n).n2, faces(n).n3 faces(n).n4, ...
-%                 faces(n).cr faces(n).cl]);
-%         end
-        fprintf(fid, '%s\n', facesStr{outlet_faces(1):outlet_faces(2)});
-        fprintf(fid, '))\n');
-        fprintf(fid, '\n');
-    
-        fprintf('Writing blade faces\n')
-        fprintf(fid,'(0 "Upper Blade:")\n');
-        fprintf(fid,'(13 (7 %X %X %X 4)(\n', [upper_blade_faces(1) upper_blade_faces(2) 3]);
-%         for n=upper_blade_faces(1):upper_blade_faces(2)
-%             %fprintf('%d, n1: %d %X, n2: %d %X, cr: %d %X, cl: %d %X\n', [n faces(n).n1 faces(n).n1 faces(n).n2 faces(n).n2 faces(n).cr faces(n).cr faces(n).cl faces(n).cl])
-%             fprintf(fid,'%X %X %X %X\n',[faces(n).n1 faces(n).n2 faces(n).cr faces(n).cl]);
-%         end
-        fprintf(fid, '%s\n', facesStr{upper_blade_faces(1):upper_blade_faces(2)});
-        fprintf(fid, '))\n');
-        fprintf(fid, '\n');
-    
-        fprintf(fid,'(0 "Lower Blade:")\n');
-        fprintf(fid,'(13 (8 %X %X %X 4)(\n', [lower_blade_faces(1) lower_blade_faces(2) 3]);
-%         for n=lower_blade_faces(1):lower_blade_faces(2)
-%             %fprintf('%d, n1: %d %X, n2: %d %X, cr: %d %X, cl: %d %X\n', [n faces(n).n1 faces(n).n1 faces(n).n2 faces(n).n2 faces(n).cr faces(n).cr faces(n).cl faces(n).cl])
-%             fprintf(fid,'%X %X %X %X\n',[faces(n).n1 faces(n).n2 faces(n).cr faces(n).cl]);
-%         end
-        fprintf(fid, '%s\n', facesStr{lower_blade_faces(1):lower_blade_faces(2)});
-        fprintf(fid, '))\n');
-        fprintf(fid, '\n');
 
-        fprintf('Writing periodic faces\n')
-        fprintf(fid,'(0 "z0 periodic:")\n');
-        fprintf(fid,'(13 (9 %X %X %X 4)(\n', [zm_faces(1) zm_faces(2) 12]);
-%         for n=zm_faces(1):zm_faces(2)
-%             fprintf(fid,'%X %X %X %X\n',[faces(n).n1 faces(n).n2, faces(n).n3 faces(n).n4, ...
-%                 faces(n).cr faces(n).cl]);
-%         end
-        fprintf(fid, '%s\n', facesStr{zm_faces(1):zm_faces(2)});
-        fprintf(fid, '))\n');
-        fprintf(fid, '\n');
+        nZones = 2;
 
-        fprintf(fid,'(0 "zp shadow periodic:")\n');
-        fprintf(fid,'(13 (a %X %X %X 4)(\n', [zp_faces(1) zp_faces(2) 8]);
-%         for n=zp_faces(1):zp_faces(2)
-%             fprintf(fid,'%X %X %X %X\n',[faces(n).n1 faces(n).n2, faces(n).n3 faces(n).n4, ...
-%                 faces(n).cr faces(n).cl]);
-%         end
-        fprintf(fid, '%s\n', facesStr{zp_faces(1):zp_faces(2)});
-        fprintf(fid, '))\n');
-        fprintf(fid, '\n');
+        if boundaries{end}.nEnd < length(faces)
+            fprintf('Writing interior faces\n')
+            fprintf(fid,'(0 "Interior:")\n');
+            fprintf(fid,'(13 (2 %X %X %X 4)(\n', [boundaries{end}.nEnd+1 length(faces) 2]);
+            for n=(boundaries{end}.nEnd+1):length(faces)
+                fprintf(fid,'%X %X %X %X %X %X\n',[faces(n).n1 faces(n).n2, faces(n).n3 faces(n).n4, ...
+                    faces(n).cr faces(n).cl]);
+            end
+    %         fprintf(fid, '%s\n', facesStr{boundaries{end}.nEnd+1:end});
+            fprintf(fid, '))\n');
+            fprintf(fid, '\n');
+        else
+            nZones = 1;
+        end
+    
+        for ib = 1:length(boundaries)
+            b = boundaries{ib};
+            nZones = nZones+1;
+            boundaries{ib}.nZone = nZones;
+            fprintf(fid,'(0 "%s:")\n', b.label);
+            fprintf(fid,'(13 (%d %X %X %X 4)(\n', ...
+                [nZones b.nStart b.nEnd b.type]);
+            for n=b.nStart:b.nEnd
+                if faces(n).cr == 0
+                    fprintf(fid,'%X %X %X %X %X %X\n',[faces(n).n1 faces(n).n4 faces(n).n3 faces(n).n2 faces(n).cl faces(n).cr]);
+                else
+                    fprintf(fid,'%X %X %X %X %X %X\n',[faces(n).n1 faces(n).n2 faces(n).n3 faces(n).n4 faces(n).cr faces(n).cl]);
+                end
+            end
+            fprintf(fid, '))\n');
+            fprintf(fid, '\n');
+        end
 
         fprintf('Writing shadow zone\n')
-        fprintf(fid,'(0 "Shadow zone:")\n');
-        fprintf(fid,'(18 (%X %X %X %X)(\n', [1 (1+zp_faces(2)-zp_faces(1)) 9 10]);
-%         for n=zp_faces(1):zp_faces(2)
-%             fprintf(fid,'%X %X\n',[faces(n).sf n]);
-%         end
-        fprintf(fid, '%s\n', shadowStr{:});
-        fprintf(fid, '))\n');
-        fprintf(fid, '\n');
+        fprintf(fid,'(0 "Shadow zone pairs:")\n');
+
+        for ib = 1:length(boundaries)
+            b = boundaries{ib};
+            if b.type == 12  % Periodic zone
+                periodicZone = b.nZone;
+                shadowZone = boundaries{b.shadow_boundary}.nZone;
+                fprintf(fid,'(0 "%s shadow zone:")\n', b.label);
+                fprintf(fid,'(18 (%X %X %X %X)(\n', ...
+                [b.nPairsStart b.nPairsEnd ...
+                periodicZone shadowZone]);
+                for n=b.nPairsStart:b.nPairsEnd
+                    fprintf(fid,'%X %X\n',[pairs(n).face pairs(n).shadow_face]);
+                end
+                fprintf(fid, '))\n');
+                fprintf(fid, '\n');
+            end
+        end
     
         fprintf('Writing nodes\n')
         fprintf(fid,'(10 (1 %X %X 1 3)\n(\n',[1 length(nodes)]);
@@ -685,7 +683,7 @@ function blkNodes = writeFluentMeshExtruded(path, blk, next_block, next_patch, n
         if nblk > NB
             nblk = 0;
         end
-        if nblk == 0
+        if (nblk == 0) || is_periodic(ib, dr)
             [nib, njb] = size(blk.x{ib});
             switch dr
                 case {'im','ip'}
@@ -725,7 +723,7 @@ function blkNodes = writeFluentMeshExtruded(path, blk, next_block, next_patch, n
         if nblk > NB
             nblk = 0;
         end
-        if nblk ~= 0
+        if nblk ~= 0 && ~is_periodic(ib, dr)
             nptch = next_patch{ib}.(dr);
             switch nptch
                 case 1
@@ -737,6 +735,47 @@ function blkNodes = writeFluentMeshExtruded(path, blk, next_block, next_patch, n
                 case 4
                     jp_assigned(nblk) = true;
             end
+        end
+    end
+
+function periodic = is_periodic(ib, dr)
+        nblk = next_block{ib}.(dr);
+        nptch = next_patch{ib}.(dr);
+        if nblk ~= 0
+            switch dr
+                case 'im'
+                    x1 = blk.x{ib}(1,1);
+                    y1 = blk.y{ib}(1,1);
+                case 'ip'
+                    x1 = blk.x{ib}(end,1);
+                    y1 = blk.y{ib}(end,1);
+                case 'jm'
+                    x1 = blk.x{ib}(1,1);
+                    y1 = blk.y{ib}(1,1);
+                case 'jp'
+                    x1 = blk.x{ib}(1,end);
+                    y1 = blk.y{ib}(1,end);
+            end
+            switch nptch
+                case 1
+                    x2 = blk.x{nblk}(1,1);
+                    y2 = blk.y{nblk}(1,1);
+                case 2
+                    x2 = blk.x{nblk}(end,1);
+                    y2 = blk.y{nblk}(end,1);
+                case 3
+                    x2 = blk.x{nblk}(1,1);
+                    y2 = blk.y{nblk}(1,1);
+                case 4
+                    x2 = blk.x{nblk}(1,end);
+                    y2 = blk.y{nblk}(1,end);
+            end
+        end
+
+        if (nblk ~= 0) && ((x1 ~= x2) || (y1 ~= y2))
+            periodic = true;
+        else
+            periodic = false;
         end
     end
 
