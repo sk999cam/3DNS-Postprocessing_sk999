@@ -84,8 +84,13 @@ classdef DNS_case < handle
 
                 if exist(fullfile(obj.casepath,'rans.txt'),'file')
                     f = fopen(fullfile(obj.casepath,'rans.txt'),'r');
-                    obj.if_rans = str2num(fgetl(f));
-                    obj.speed_up = str2num(fgetl(f));
+                    try
+                        obj.if_rans = str2num(fgetl(f));
+                        obj.speed_up = str2num(fgetl(f));
+                    catch
+                        obj.if_rans = 0;
+                        obj.speed_up = 0;
+                    end
                     fclose(f)
                 else
                     obj.if_rans = false;

@@ -45,7 +45,8 @@ classdef flowSlice < handle
         T0;
         schlieren;      % |grad(ro)|/ro
         cellSize;
-        S_an_mag;   % Magnitude of Anisotripic part of strain rate tensor
+        St              % Traceless strain
+        S_an_mag;       % Magnitude of anisotropic componant of strain tensor
     end
 
     methods (Abstract)
@@ -286,24 +287,31 @@ classdef flowSlice < handle
 
         
 
-        function value = get.S_an_mag(obj)
+        function value = get.St(obj)
             for ib = 1:obj.NB
+
                 [DUDX,DUDY] = gradHO(obj.blk.x{ib},obj.blk.y{ib},obj.u{ib});
                 [DVDX,DVDY] = gradHO(obj.blk.x{ib},obj.blk.y{ib},obj.v{ib});
-        
+
+                %Traceless strain tensor
                 S = zeros(obj.blk.blockdims(ib,1),obj.blk.blockdims(ib,2),3,3);
-                
                 
                 S(:,:,1,1) = 2*DUDX/3 - DVDY/3;
                 S(:,:,2,2) = 2*DVDY/3 - DUDX/3;
                 S(:,:,3,3) = -(DUDX+DVDY)/3;
-        
+
                 S(:,:,1,2) = 0.5*(DUDY+DVDX);
                 S(:,:,2,1) = S(:,:,1,2);
 
-                value{ib} = sqrt(abs(sum(sum(S.*S,4),3)));
+                value{ib} = S;
             end
+        end
 
+        function value = get.S_an_mag(obj)
+            Snow = obj.St;
+            for ib = 1:obj.NB
+                value{ib} = sqrt(sum(sum(Snow{ib}.*Snow{ib},4),3));
+            end
         end
             
     end

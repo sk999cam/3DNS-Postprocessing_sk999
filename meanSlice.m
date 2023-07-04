@@ -41,6 +41,9 @@ classdef meanSlice < aveSlice
         mut_opt;
         mut_ratio;
         tau_Re;
+        tau_an_mag;     % Magnitude of anisotropic componant of Re stress
+        omega_opt;
+
     end
 
     methods
@@ -356,6 +359,7 @@ classdef meanSlice < aveSlice
                 [DUDX,DUDY] = gradHO(obj.blk.x{ib},obj.blk.y{ib},obj.u{ib});
                 [DVDX,DVDY] = gradHO(obj.blk.x{ib},obj.blk.y{ib},obj.v{ib});
 
+                %Traceless strain tensor
                 S = zeros(obj.blk.blockdims(ib,1),obj.blk.blockdims(ib,2),3,3);
                 tau = S;
                 
@@ -366,52 +370,44 @@ classdef meanSlice < aveSlice
                 S(:,:,1,2) = 0.5*(DUDY+DVDX);
                 S(:,:,2,1) = S(:,:,1,2);
 
+                % Traceless strain magnitude
+                St = sqrt(sum(sum(S.*S,4),3));
                 
-                tau(:,:,1,1) = -2*obj.roUddUdd{ib}/3 + obj.roVddVdd{ib}/3 + obj.roWddWdd{ib}/3;
-                tau(:,:,2,2) = -2*obj.roVddVdd{ib}/3 + obj.roUddWdd{ib}/3 + obj.roUddWdd{ib}/3;
-                tau(:,:,3,3) = -2*obj.roWddWdd{ib}/3 + obj.roUddUdd{ib}/3 + obj.roVddVdd{ib}/3;
+                % Traceless Re stress tensor
+                tau(:,:,1,1) = 2*obj.roUddUdd{ib}/3 - obj.roVddVdd{ib}/3 - obj.roWddWdd{ib}/3;
+                tau(:,:,2,2) = 2*obj.roVddVdd{ib}/3 - obj.roUddWdd{ib}/3 - obj.roUddWdd{ib}/3;
+                tau(:,:,3,3) = 2*obj.roWddWdd{ib}/3 - obj.roUddUdd{ib}/3 - obj.roVddVdd{ib}/3;
 
-                tau(:,:,1,2) = -obj.roUddVdd{ib};
+                tau(:,:,1,2) = obj.roUddVdd{ib};
                 tau(:,:,2,1) = tau(:,:,1,2);
 
-                num = sum(sum(tau.*S,4),3);
-                den = sum(sum(S.*S,4),3);
-                den = sign(den).*min(2000*2, abs(den));
+                num = sum(sum(abs(tau.*S),4),3);
+                den = sqrt(sum(sum(S.*S,4),3));
+%                 num = obj.tau_Re{ib};
+                den = obj.S_an_mag{ib};
 
-                mask  = sqrt(abs(den)) < 2000;
-
-                mask = 0.5.*(1 + tanh((obj.blk.x{ib}-0.14)*100));
-
-                value{ib} = 0.5*mask.*abs(num./den);
+                value{ib} = 0.5*abs(num./den.^2);
 
             end
         end
 
         function value = get.tau_Re(obj)
+            Snow = obj.St;
             for ib = 1:obj.NB
 
                 [DUDX,DUDY] = gradHO(obj.blk.x{ib},obj.blk.y{ib},obj.u{ib});
                 [DVDX,DVDY] = gradHO(obj.blk.x{ib},obj.blk.y{ib},obj.v{ib});
 
-                S = zeros(obj.blk.blockdims(ib,1),obj.blk.blockdims(ib,2),3,3);
-                tau = S;
+                tau = zeros(obj.blk.blockdims(ib,1),obj.blk.blockdims(ib,2),3,3);
                 
-                S(:,:,1,1) = 2*DUDX/3 - DVDY/3;
-                S(:,:,2,2) = 2*DVDY/3 - DUDX/3;
-                S(:,:,3,3) = -(DUDX+DVDY)/3;
+                tau(:,:,1,1) = 2*obj.roUddUdd{ib}/3 - obj.roVddVdd{ib}/3 - obj.roWddWdd{ib}/3;
+                tau(:,:,2,2) = 2*obj.roVddVdd{ib}/3 - obj.roUddUdd{ib}/3 - obj.roWddWdd{ib}/3;
+                tau(:,:,3,3) = 2*obj.roWddWdd{ib}/3 - obj.roUddUdd{ib}/3 - obj.roVddVdd{ib}/3;
 
-                S(:,:,1,2) = 0.5*(DUDY+DVDX);
-                S(:,:,2,1) = S(:,:,1,2);
-
-                
-                tau(:,:,1,1) = -2*obj.roUddUdd{ib}/3 + obj.roVddVdd{ib}/3 + obj.roWddWdd{ib}/3;
-                tau(:,:,2,2) = -2*obj.roVddVdd{ib}/3 + obj.roUddUdd{ib}/3 + obj.roWddWdd{ib}/3;
-                tau(:,:,3,3) = -2*obj.roWddWdd{ib}/3 + obj.roUddUdd{ib}/3 + obj.roVddVdd{ib}/3;
-
-                tau(:,:,1,2) = -obj.roUddVdd{ib};
+                tau(:,:,1,2) = obj.roUddVdd{ib};
                 tau(:,:,2,1) = tau(:,:,1,2);
 
-                value{ib} = sum(sum(tau.*tau,4),3);
+                value{ib} = sum(sum(abs(tau.*Snow{ib}),4),3);
             end
         end
 
@@ -454,6 +450,16 @@ classdef meanSlice < aveSlice
             end
         end
 
+        function value = get.omega_opt(obj)
+            mto = obj.mut_opt;
+            know = obj.k;
+            for ib = 1:obj.NB
+                om = know{ib}./max(0.5,mto{ib});
+                value{ib} = abs(om);
+                
+            end
+        end
+
         function value = get_p(obj)
             value = obj.pbar;
         end
@@ -469,79 +475,6 @@ classdef meanSlice < aveSlice
         function obj.set_T(obj,value)
             obj.Tbar = value;
         end
-
-
-%         function value = get.dsdy(obj)
-%             s = obj.oGridProp('s');
-%             value = (s(:,2:end)-s(:,1:end-1))./(obj.yBL(:,2:end)-obj.yBL(:,1:end-1));
-%         end
-%         
-% 
-%         function value = get.Msurf(obj)
-%             disp('Calculating surface M')
-%             psurf = [];
-%             pnow = obj.p;
-%             size(pnow{4})
-%             for i=1:length(obj.oblocks)
-%                 clear temp
-%                 temp = pnow{obj.oblocks(i)}(:,end);
-%                 size(temp)
-%                 if obj.oblocks_flip(i) == 1
-%                     temp = flip(temp);
-%                 end
-%                 psurf = [psurf temp'];
-%             end
-%             value = sqrt((2/(obj.gas.gam - 1)) * ( (psurf/obj.p0in).^(-(obj.gas.gam-1)/obj.gas.gam) - 1));
-%         end
-% 
-%         function value = get.BLedgeInd(obj)
-%             temp = obj.dsdy;
-%             for i=1:size(temp,1)
-%                 j=3;
-%                 temp(i,j);
-%                 while temp(i,j) < obj.dsdyThresh
-%                     j = j+1;
-%                 end
-%                 value(i) = j+1;
-%             end
-%         end
-% 
-%         function value = get.delta99(obj)
-%             inds = obj.BLedgeInd;
-%             for i=1:size(obj.yBL,1)
-%                 value(i) = obj.yBL(i,inds(i));
-%             end
-%         end
-% 
-%         function value = get.U(obj)
-%             disp('Calculating U')
-%             unow = obj.oGridProp('u');
-%             vnow = obj.oGridProp('v');
-%             nnow = obj.n;
-%             value = zeros(size(obj.yBL));
-%             for i=1:size(obj.yBL,1)
-%                 for j=1:size(obj.yBL,2)
-%                     velnow = [unow(i,j); vnow(i,j)];
-%                     value(i,j) = norm(velnow - nnow(:,i)*dot(nnow(:,i),velnow));
-%                 end
-%             end
-%         end
-% 
-%         function value = get.delStar(obj)
-%             inds = obj.BLedgeInd;
-%             ronow = obj.oGridProp('ro');
-%             Unow = obj.U;
-%             value = zeros(1,length(inds));
-%             for i=1:size(obj.yBL,1)
-%                 integrand = 1 - ronow(i,1:inds(i)).*Unow(i,1:inds(i))/(ronow(i,inds(i))*Unow(i,inds(i)));
-%                 ys = obj.yBL(1:inds(i));
-%                 value(i) = trapz(ys, integrand);
-%             end
-%         end
-% 
-%         function value = get.Res(obj)
-%             value = obj.ssurf*obj.Uinf*obj.roinf/obj.muinf;
-%         end
         
         
     end

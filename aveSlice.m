@@ -50,7 +50,6 @@ classdef aveSlice < kCut
         Re_theta_ps;
         pdyn            % Dynamic pressure, 0.5*rho*V^2
         nu_e            % Boundary layer edge viscosity
-
         
     end
 
@@ -714,6 +713,8 @@ classdef aveSlice < kCut
                 (obj.gas.mu_tref+obj.gas.mu_cref)./(Te+obj.gas.mu_cref);
             value = mu_e./roe;
         end
+
+       
         
     end
 end

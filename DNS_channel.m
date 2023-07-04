@@ -132,6 +132,24 @@ classdef DNS_channel < DNS_case
             newCase = DNS_channel;
         end
 
+        function write_hydra_inlet_bc(obj)
+            kprof = obj.meanFlow.BLprof(0.25,'k');
+            omprof = obj.meanFlow.BLprof(0.25,'omega_opt');
+            [vel_prof, po_prof, To_prof, T_prof] = blasius_bl(obj.bcs.Toin, obj.bcs.vin, obj.bcs.theta, obj.blk.y{1}(1,:), obj.gas);
+            Toin = To_prof*obj.bcs.Toin;
+            Tin = obj.bcs.Toin - obj.bcs.vin^2/(2*obj.gas.cp);
+            Poin = po_prof*obj.bcs.Poin;
+            rgas = obj.gas.cp*(obj.gas.gam-1)/obj.gas.gam;
+            Mprof = obj.bcs.vin*vel_prof./sqrt(obj.gas.gam*rgas*Tin*T_prof);
+
+            f = fopen(fullfile(obj.casepath, 'hydra_inlet_bc_data.txt'),'w');
+            for j=1:length(kprof)
+                data = fprintf(f,'%8.6f\t%8.6f\t%8.6f\t%8.6f\t%8.6f\t%8.6f\t%8.6f\n',...
+                    [obj.blk.y{1}(1,j) Toin(j) Poin(j) 0.0 Mprof(j) kprof(j) omprof(j)]);
+            end
+            fclose(f);
+        end
+
 
 
 
