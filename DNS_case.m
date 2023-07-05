@@ -2029,12 +2029,22 @@ classdef DNS_case < handle
                 path = fullfile(obj.casepath,[obj.casename '_Fluent_2d.msh']);
                 %npath = fullfile(obj.casepath,[obj.casename '_Fluent_nodes.mat']);
             end
-            blkNodes = obj.write_fluent_mesh_2d(path);
+            bnd = obj.getBoundaries;
+            blkNodes = writeFluentMesh(path, obj.blk, obj.blk.next_block, obj.blk.next_patch, bnd, true);
         end
 
-        function blkNodes = write_fluent_mesh_2d(obj, path)
-            blkNodes = writeAerofoilFluentMesh(path, obj.blk, obj.blk.next_block, obj.blk.next_patch, true);
+        function blkNodes = writeFluentMeshExtruded(obj, spannow, nknow, path)
+            bnd = obj.getBoundaries;
+            if nargin < 4
+                path = fullfile(obj.casepath,[obj.casename '_extruded.msh']);
+            end
+            blkNodes = writeFluentMeshExtruded(path, obj.blk, obj.blk.next_block, obj.blk.next_patch, bnd, spannow, nknow, true);
         end
+
+
+%         function blkNodes = write_fluent_mesh_2d(obj, path)
+%             blkNodes = writeAerofoilFluentMesh(path, obj.blk, obj.blk.next_block, obj.blk.next_patch, true);
+%         end
 
         function blkNodes = write_Fluent_mesh(obj, fname)
             if nargin < 2

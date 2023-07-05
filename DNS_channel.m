@@ -150,7 +150,67 @@ classdef DNS_channel < DNS_case
             fclose(f);
         end
 
+        function boundaries = getBoundaries(obj)
 
+
+            % BCs:
+            % 3: Wall
+            % 4: Pressure inlet
+            % 5: Pressure outlet
+            % 12: Periodic
+            % 8: Periodic shadow
+
+            boundaries = {};
+            b.label = "Inlet";
+            blks = [];
+            for j = 1:obj.nbj
+                ib = 1+(j-1)*obj.nbi;
+                blks = [blks ib];
+            end
+            b.blocks = blks;
+            b.patches(1:length(blks)) = 1;
+            b.type = 4;
+            boundaries{end+1} = b;
+            
+            b.label = "Wall";
+            b.blocks = 1:obj.nbi;
+            b.patches(1:obj.nbi) = 3;
+            b.type = 3;
+            boundaries{end+1} = b;
+            
+            b.label = "Pre-shock";
+            xmid = obj.blk.x{obj.nbi}(end,1)/2;
+            blks = [];
+            psblks = [];
+            for ib=(obj.NB-obj.nbi)+1:obj.NB
+                if obj.blk.x{ib}(floor(obj.blk.blockdims(ib,1)/2),end) < xmid
+                    blks = [blks ib];
+                else
+                    psblks = [psblks ib];
+                end
+            end
+            b.blocks = blks;
+            b.patches(1:length(blks)) = 4;
+            b.type = 5;
+            boundaries{end+1} = b;
+
+            b.label = "Post-shock";
+            b.blocks = psblks;
+            b.patches(1:length(psblks)) = 4;
+            b.type = 5;
+            boundaries{end+1} = b;
+            
+            b.label = "Outlet";
+            blks = [];
+            for j = 1:obj.nbj
+                ib = j*obj.nbi;
+                blks = [blks ib];
+            end
+            b.blocks = blks;
+            b.patches(1:length(blks)) = 2;
+            b.type = 5;
+            boundaries{end+1} = b;
+        end
 
 
     end

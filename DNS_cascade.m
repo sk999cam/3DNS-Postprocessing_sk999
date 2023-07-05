@@ -50,10 +50,43 @@ classdef DNS_cascade < DNS_case
             
         end
 
-
-        function blkNodes = write_fluent_mesh_2d(obj, path)
-            blkNodes = writeCascadeFluentMesh(path, obj.blk, obj.blk.next_block, obj.blk.next_patch, true);
+        function boundaries = getBoundaries(obj)
+            boundaries = {};
+            b.label = "Inlet";
+            b.blocks = [1 2];
+            b.patches = [1 1];
+            b.type = 4;
+            boundaries{end+1} = b;
+            
+            b.label = "Upper Periodic";
+            b.blocks = [1 5 8];
+            b.patches = [4 3 4];
+            b.type = 12;
+            boundaries{end+1} = b;
+            
+            b.label = "Lower Periodic";
+            b.blocks = [2 6 9];
+            b.patches = [3 3 3];
+            b.type = 8;
+            boundaries{end+1} = b;
+            
+            b.label = "Outlet";
+            b.blocks = [8 9];
+            b.patches = [2 2];
+            b.type = 5;
+            boundaries{end+1} = b;
+            
+            b.label = "Blade";
+            b.blocks = [3 4 5 7];
+            b.patches = [4 4 4 4];
+            b.type = 3;
+            boundaries{end+1} = b;
         end
+
+
+%         function blkNodes = write_fluent_mesh_2d(obj, path)
+%             blkNodes = writeCascadeFluentMesh(path, obj.blk, obj.blk.next_block, obj.blk.next_patch, true);
+%         end
 
         function newCase = instantiate(obj)
             newCase = DNS_channel;

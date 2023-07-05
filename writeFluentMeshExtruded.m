@@ -1,4 +1,4 @@
-function blkNodes = writeFluentMeshExtrudedGeneral(path, blk, next_block, next_patch, boundaries, nk, span, iWrite)
+function blkNodes = writeFluentMeshExtruded(path, blk, next_block, next_patch, boundaries, span, nk, iWrite)
 
     if nargin < 7
         iWrite = true;
