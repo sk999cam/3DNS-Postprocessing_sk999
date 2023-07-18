@@ -25,7 +25,7 @@ for i=1:NB
     ni = size(x,1);
     nj = size(x,2);
     nij_pts = nij_pts + ni*nj;
-    nk = blk.nk{i};
+    nk = blk.nk;
     for j=[1:skip:ni ni]
         if (j==1) || (j==ni)
             plot(x(j,:),y(j,:),'r','LineWidth',1)
@@ -161,8 +161,14 @@ cb = colorbar;
 
 x_grid = [];
 y_grid = [];
-o_blocks = [4 6 9 5];
-flip = [0, 0, 1, 1];
+if NB == 12
+    o_blocks = [4 6 9 5];
+    flip = [0, 0, 1, 1];
+elseif NB == 9
+    o_blocks = [3 5 7 4];
+    flip = [0, 0, 1, 1];
+end
+    
 for i=1:length(o_blocks)
     x_tmp = blk.x{o_blocks(i)}(:,end:-1:1);
     y_tmp = blk.y{o_blocks(i)}(:,end:-1:1);

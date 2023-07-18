@@ -47,6 +47,8 @@ classdef flowSlice < handle
         cellSize;
         St              % Traceless strain
         S_an_mag;       % Magnitude of anisotropic componant of strain tensor
+        local_cfl;
+        wallDist;       % Distance from wall
     end
 
     methods (Abstract)
@@ -312,6 +314,39 @@ classdef flowSlice < handle
             for ib = 1:obj.NB
                 value{ib} = sqrt(sum(sum(Snow{ib}.*Snow{ib},4),3));
             end
+        end
+
+        function value = get.local_cfl(obj)
+            cfl = 1.0;
+            Vnow = obj.vel;
+            Tnow = obj.T;
+            c = {};
+            cmax = [];
+            for ib = 1:obj.NB
+                c{ib} = sqrt(obj.gas.gam*obj.gas.rgas*Tnow{ib});
+                cmax(ib) = max(c{ib},[],'all');
+                vmax(ib) = max(Vnow{ib},[],'all');
+                [dxi, dxj] = gradHOij(obj.blk.x{ib});
+                [dyi, dyj] = gradHOij(obj.blk.y{ib});
+                dcelli = sqrt(dxi.^2 + dyi.^2);
+                dcellj = sqrt(dxj.^2 + dyj.^2);
+                dcell{ib} = min(dcelli, dcellj);
+            end
+            vmax = max(vmax);
+            cmax = max(cmax);
+
+            for ib = 1:obj.NB
+                dt(ib) = min(cfl*dcell{ib}/(vmax+cmax),[],'all');
+            end
+            dt = min(dt);
+            fprintf('Slice Δt = %5.3e\n',dt)
+            for ib = 1:obj.NB
+                value{ib} = dt*(Vnow{ib}+c{ib})./dcell{ib};
+            end 
+        end
+
+        function value = get.wallDist(obj)
+            value = obj.blk.walldist;
         end
             
     end

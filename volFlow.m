@@ -112,6 +112,7 @@ classdef volFlow < handle
                                 rv(i,j,k) = A(3,n);
                                 rw(i,j,k) = A(4,n);
                                 Et(i,j,k) = A(5,n);
+                                mut = [];
                             end
                         case 'gpu'
                             ni = blk.blockdims(nb,1);

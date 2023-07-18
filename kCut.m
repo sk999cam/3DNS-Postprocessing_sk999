@@ -209,7 +209,7 @@ classdef kCut < flowSlice
             if string(prop) == "dsdy"
                 plot(ax, q, obj.yBL(i,2:end))
             else
-                plot(ax, q, obj.yBL(i,:)/obj.yBL(i,end))
+                plot(ax, q, obj.yBL(i,:))%/obj.yBL(i,end))
             end
         end
 
@@ -226,9 +226,6 @@ classdef kCut < flowSlice
         function ind = x2ind(obj,x)
             [~, ind] = min(abs(obj.xSurf-x));
         end
-
-
-        
 
         function plot(obj,prop,ax,lims,label)
             
@@ -328,6 +325,20 @@ classdef kCut < flowSlice
                 nnow = (0.5*(n1+n2)/norm(0.5*(n1+n2)));
                 n(:,i) = nnow;
             end
+        end
+
+        function vol = slice2flowBlock(obj, ib)
+            vol = volFlowBlock;
+            blknow.x = obj.blk.x{ib};
+            blknow.y = obj.blk.y{ib};
+            vol.blk = blknow;
+            vol.ro = obj.ro{ib};
+            vol.u = obj.u{ib};
+            vol.v = obj.v{ib};
+            vol.w = obj.w{ib};
+            vol.Et = obj.Et{ib};
+            vol.ib = ib;
+            vol.blk.nk = 1;
         end
     end
 end

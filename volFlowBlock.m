@@ -266,8 +266,8 @@ classdef volFlowBlock
 
             [fic, fjc] = obj.get_spacing(obj.blk.x,obj.blk.y);
             [fi, fj] = obj.get_spacing(newcase.blk.x{obj.ib},newcase.blk.y{obj.ib});
-            fkc = linspace(0,1,obj.nk);
-            fk = linspace(0,1,newcase.blk.nk{ib});
+            fkc = linspace(0,1,obj.blk.nk);
+            fk = linspace(0,1,newcase.blk.nk);
             
 %                 if ~ismember(ib, obj.blk.oblocks)
 %                     ib
@@ -294,12 +294,21 @@ classdef volFlowBlock
             [Jc,Ic,Kc] = meshgrid(fjc,fic,fkc);
             [J,I,K] = meshgrid(fj,fi,fk);
 
-            newFlow.ro = interp3(Jc,Ic,Kc,obj.ro,J,I,K);
-            newFlow.u = interp3(Jc,Ic,Kc,obj.u,J,I,K);
-            newFlow.v = interp3(Jc,Ic,Kc,obj.v,J,I,K);
-            newFlow.w = interp3(Jc,Ic,Kc,obj.w,J,I,K);
-            newFlow.Et = interp3(Jc,Ic,Kc,obj.Et,J,I,K);
+            if ndims(I) == 3
+                newFlow.ro = interp3(Jc,Ic,Kc,obj.ro,J,I,K);
+                newFlow.u = interp3(Jc,Ic,Kc,obj.u,J,I,K);
+                newFlow.v = interp3(Jc,Ic,Kc,obj.v,J,I,K);
+                newFlow.w = interp3(Jc,Ic,Kc,obj.w,J,I,K);
+                newFlow.Et = interp3(Jc,Ic,Kc,obj.Et,J,I,K);
+            else
+                newFlow.ro = interp2(Jc,Ic,obj.ro,J,I);
+                newFlow.u = interp2(Jc,Ic,obj.u,J,I);
+                newFlow.v = interp2(Jc,Ic,obj.v,J,I);
+                newFlow.w = interp2(Jc,Ic,obj.w,J,I);
+                newFlow.Et = interp2(Jc,Ic,obj.Et,J,I);
+            end
             newFlow.ib = obj.ib;
+            
 
         end
 

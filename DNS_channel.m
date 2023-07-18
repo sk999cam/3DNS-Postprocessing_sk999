@@ -135,17 +135,80 @@ classdef DNS_channel < DNS_case
         function write_hydra_inlet_bc(obj)
             kprof = obj.meanFlow.BLprof(0.25,'k');
             omprof = obj.meanFlow.BLprof(0.25,'omega_opt');
-            [vel_prof, po_prof, To_prof, T_prof] = blasius_bl(obj.bcs.Toin, obj.bcs.vin, obj.bcs.theta, obj.blk.y{1}(1,:), obj.gas);
-            Toin = To_prof*obj.bcs.Toin;
-            Tin = obj.bcs.Toin - obj.bcs.vin^2/(2*obj.gas.cp);
-            Poin = po_prof*obj.bcs.Poin;
-            rgas = obj.gas.cp*(obj.gas.gam-1)/obj.gas.gam;
-            Mprof = obj.bcs.vin*vel_prof./sqrt(obj.gas.gam*rgas*Tin*T_prof);
+            [uprof, y] = obj.inletProf(obj.meanFlow,'u');
+            [vprof, ~] = obj.inletProf(obj.meanFlow,'v');
+            Vin = sqrt(uprof.^2+vprof.^2);
+            [Toin, ~] = obj.inletProf(obj.meanFlow,'T0');
+            Tin = Toin - Vin.^2/(2*obj.gas.cp);
+            Minf = M_VT0(obj.bcs.vin,obj.bcs.Toin,obj.gas.gam,obj.gas.cp);
+            Mprof = M_VT0(Vin,Toin,obj.gas.gam,obj.gas.cp);
+            Mprof = Mprof*Minf/Mprof(end);
+            ps = obj.bcs.Poin*p_p0(Minf, obj.gas.gam);
+            Poin = ps./p_p0(Mprof,obj.gas.gam);
+%             uprof = obj.meanFlow.BLprof(0.25,'u');
+%             vprof = obj.meanFlow.BLprof(0.25,'v');
+            aprof = atand(vprof./uprof);
+%             [Poin, ~] = obj.inletProf(obj.meanFlow,'p0');
+%             [Mprof, ~] = obj.inletProf(obj.meanFlow,'M');
+            pprof = Poin.*p_p0(Mprof,obj.gas.gam);
+            
+
+%             [vel_prof, po_prof, To_prof, T_prof] = blasius_bl(obj.bcs.Toin, obj.bcs.vin, obj.bcs.theta, obj.blk.y{1}(1,:), obj.gas);
+%             Toin = To_prof*obj.bcs.Toin;
+%             Tin = obj.bcs.Toin - obj.bcs.vin^2/(2*obj.gas.cp);
+%             Poin = po_prof*obj.bcs.Poin;
+%             rgas = obj.gas.cp*(obj.gas.gam-1)/obj.gas.gam;
+%             Mprof = obj.bcs.vin*vel_prof./sqrt(obj.gas.gam*rgas*Tin*T_prof);
 
             f = fopen(fullfile(obj.casepath, 'hydra_inlet_bc_data.txt'),'w');
             for j=1:length(kprof)
-                data = fprintf(f,'%8.6f\t%8.6f\t%8.6f\t%8.6f\t%8.6f\t%8.6f\t%8.6f\n',...
-                    [obj.blk.y{1}(1,j) Toin(j) Poin(j) 0.0 Mprof(j) kprof(j) omprof(j)]);
+                data = fprintf(f,'\t%8.6f\t%8.6f\t%8.6f\t%8.6f\t%8.6f\t%8.6f\t%8.6f\n',...
+                    [y(j) Toin(j) Poin(j) Mprof(j) aprof(j) kprof(j) omprof(j)]);
+            end
+            fclose(f);
+        end
+
+        function write_hydra_split_inlet_bc(obj)
+            kprof = obj.meanFlow.BLprof(0.25,'k');
+            omprof = obj.meanFlow.BLprof(0.25,'omega_opt');
+            [uprof, y] = obj.inletProf(obj.meanFlow,'u');
+            [vprof, ~] = obj.inletProf(obj.meanFlow,'v');
+            Vin = sqrt(uprof.^2+vprof.^2);
+            [Toin, ~] = obj.inletProf(obj.meanFlow,'T0');
+            Tin = Toin - Vin.^2/(2*obj.gas.cp);
+            Minf = M_VT0(obj.bcs.vin,obj.bcs.Toin,obj.gas.gam,obj.gas.cp);
+            Mprof = M_VT0(Vin,Toin,obj.gas.gam,obj.gas.cp);
+            Mprof = Mprof*Minf/Mprof(end);
+            ps = obj.bcs.Poin*p_p0(Minf, obj.gas.gam);
+            Poin = ps./p_p0(Mprof,obj.gas.gam);
+%             uprof = obj.meanFlow.BLprof(0.25,'u');
+%             vprof = obj.meanFlow.BLprof(0.25,'v');
+            aprof = atand(vprof./uprof);
+%             [Poin, ~] = obj.inletProf(obj.meanFlow,'p0');
+%             [Mprof, ~] = obj.inletProf(obj.meanFlow,'M');
+            pprof = Poin.*p_p0(Mprof,obj.gas.gam);
+            
+
+%             [vel_prof, po_prof, To_prof, T_prof] = blasius_bl(obj.bcs.Toin, obj.bcs.vin, obj.bcs.theta, obj.blk.y{1}(1,:), obj.gas);
+%             Toin = To_prof*obj.bcs.Toin;
+%             Tin = obj.bcs.Toin - obj.bcs.vin^2/(2*obj.gas.cp);
+%             Poin = po_prof*obj.bcs.Poin;
+%             rgas = obj.gas.cp*(obj.gas.gam-1)/obj.gas.gam;
+%             Mprof = obj.bcs.vin*vel_prof./sqrt(obj.gas.gam*rgas*Tin*T_prof);
+            
+            [~, jsonic] = min(abs(Mprof-1));
+            
+            f = fopen(fullfile(obj.casepath, 'hydra_inlet_bc_sub.txt'),'w');
+            for j=1:jsonic
+                data = fprintf(f,'\t%8.6f\t%8.6f\t%8.6f\t%8.6f\t%8.6f\t%8.6f\n',...
+                    [y(j) Poin(j) Toin(j) aprof(j) kprof(j) omprof(j)]);
+            end
+            fclose(f);
+            
+            f = fopen(fullfile(obj.casepath, 'hydra_inlet_bc_sup.txt'),'w');
+            for j=jsonic:length(kprof)
+                data = fprintf(f,'\t%8.6f\t%8.6f\t%8.6f\t%8.6f\t%8.6f\t%8.6f\t%8.6f\n',...
+                    [y(j) Poin(j) Toin(j) Mprof(j) aprof(j) kprof(j) omprof(j)]);
             end
             fclose(f);
         end
@@ -210,6 +273,101 @@ classdef DNS_channel < DNS_case
             b.patches(1:length(blks)) = 2;
             b.type = 5;
             boundaries{end+1} = b;
+        end
+
+        function [flow vin ps] = init_shock_flow(obj, Min, xShock, Lshock, theta_in)
+            gam = obj.gas.gam;
+            cp = obj.gas.cp;
+            rgas = cp*(gam-1)/gam;
+            flow = volFlow;
+            flow.NB = 1;
+            flow.gam = obj.gas.gam;
+            flow.cp = obj.gas.cp;
+            flow.blk = obj.blk;
+            flow.gas = obj.gas;
+            flow.nk = obj.solver.nk;
+            flow.flowpath = obj.casepath;
+            flow.casetype = 'gpu';
+            [ni, nj] = size(obj.blk.x{1});
+
+            % Pre-shock conditions
+            fM = 1+0.5*(gam-1)*Min^2;
+            pin = obj.bcs.Poin*fM^(-gam/(gam-1));
+            tin = obj.bcs.Toin/fM;
+            roin = pin/(rgas*tin);
+            vin = Min*sqrt(gam*rgas*tin);
+            Etin = pin/(gam-1) + 0.5*roin*vin^2;
+
+            % Post shock conditions
+            Ms = sqrt(fM/(gam*Min^2 - 0.5*(gam-1)));
+            ps = pin*(1+2*gam*(Min^2-1)/(gam+1));
+            ros = 0.5*roin*(gam+1)*Min^2/fM;
+            Ts = ps/(ros*rgas);
+            vs = Ms*sqrt(gam*rgas*Ts);
+            Ets = ps/(gam-1) + 0.5*ros*vs^2;
+
+            % BL profiles
+            if theta_in > 0
+                [vel_prof, po_prof, To_prof, T_prof] = blasius_bl(obj.bcs.Toin, vin, theta_in, obj.blk.y{1}(1,:), obj.gas);
+            else
+                vel_prof = ones(1, nj);
+                po_prof = ones(1, nj);
+                To_prof = ones(1, nj);
+                T_prof = ones(1, nj);
+            end
+
+            Et_prof = (roin./T_prof) .* ((obj.gas.cp/obj.gas.gam) * tin * T_prof + vin^2 * vel_prof.^2/2);
+            Et_prof = Et_prof/Et_prof(end);
+
+
+            blfn_vel = ones(ni,nj).*vel_prof;
+            blfn_ro = ones(ni, nj)./T_prof;
+            blfn_et = ones(ni,nj).*Et_prof;
+
+            shfn = tanh((flow.blk.x{1}-xShock)/Lshock);
+
+
+            nk = obj.solver.nk;
+            flow.v{1} = zeros(ni, nj, nk);
+            flow.w{1} = flow.v{1};
+            flow.u{1} = 0.5*((vin + vs) - (vin-vs)*shfn).*blfn_vel;
+            flow.ro{1} = 0.5*((roin + ros) - (roin-ros)*shfn).*blfn_ro;
+            flow.Et{1} = 0.5*((Etin+Ets) - (Etin-Ets)*shfn).*blfn_et;
+        end
+
+        function [in out] = get_BCs(obj, Min)
+            gam = obj.gas.gam;
+            cp = obj.gas.cp;
+            rgas = cp*(gam-1)/gam;
+
+            % Pre-shock conditions
+            fM = 1+0.5*(gam-1)*Min^2;
+            pin = obj.bcs.Poin*fM^(-gam/(gam-1));
+            tin = obj.bcs.Toin/fM;
+            roin = pin/(rgas*tin);
+            vin = Min*sqrt(gam*rgas*tin);
+            Etin = pin/(gam-1) + 0.5*roin*vin^2;
+
+            in.v = vin;
+            in.M = Min;
+            in.T = tin;
+            in.ro = roin;
+            in.p = pin;
+
+            % Post shock conditions
+            Ms = sqrt(fM/(gam*Min^2 - 0.5*(gam-1)));
+            ps = pin*(1+2*gam*(Min^2-1)/(gam+1));
+            ros = 0.5*roin*(gam+1)*Min^2/fM;
+            Ts = ps/(ros*rgas);
+            vs = Ms*sqrt(gam*rgas*Ts);
+            Ets = ps/(gam-1) + 0.5*ros*vs^2;
+
+            out.v = vs;
+            out.M = Ms;
+            out.T = Ts;
+            out.ro = ros;
+            out.p = ps;
+
         end
 
 

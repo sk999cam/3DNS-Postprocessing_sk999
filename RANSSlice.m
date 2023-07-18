@@ -8,13 +8,13 @@ classdef RANSSlice < aveSlice
         mut_store;            % Eddy viscosity
 %         StR;
 %         mut;
-        wallDist;       % Distance from wall
         k;
         omega;
         Reth;
         gamma;
         trans;          % Transition model on/off
         mod;            % beta1 modification on/off
+        beta1_fac;
     end
 
     properties (Dependent = true)
@@ -202,8 +202,8 @@ classdef RANSSlice < aveSlice
                 contours{i} = pcolor(ax, obj.blk.x{i}, obj.blk.y{i}, q{i});
             end
             shading('interp')
-            pbaspect([6 2 1])
-            axis([0.3 0.9 0 0.2])
+%             pbaspect([6 2 1])
+%             axis([0.3 0.9 0 0.2])
             %axis equal
             %axis off
             cb = colorbar('southoutside');
@@ -218,6 +218,8 @@ classdef RANSSlice < aveSlice
                 cb.Label.String = label;
                 cb.Label.Interpreter = 'latex';
             end
+            axis equal
+
         end
 
         function value = get.Pr(obj)

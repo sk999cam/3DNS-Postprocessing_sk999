@@ -107,6 +107,7 @@ classdef aveSlice < kCut
             obj.muinf = mean(muinf,'all');
             obj.roinf = mean(roinf,'all');
             obj.T0in = obj.Tinf+obj.Uinf^2/(2*obj.gas.cp);
+%             obj.wallDist = obj.blk.y;
         end
 
         function value = smooth_bl_edge(obj, x, y, xSafe)
@@ -467,6 +468,8 @@ classdef aveSlice < kCut
                 ax = gca;
             end
             q = obj.(prop);
+            x0 = min(obj.xSurf);
+            x1 = max(obj.xSurf);
 
             if nargin > 5 && ~isempty(fmt)
                 if isempty(xrange)
@@ -479,14 +482,23 @@ classdef aveSlice < kCut
             else
                 plt = plot(ax,obj.xSurf,q);
             end
+            xlim([x0 x1])
             if nargin > 3 && ~isempty(lims)
                 ylim(lims);
             end
+            set(plt,'LineWidth',1.5)
             disp('')
         end
 
-        function plt = plot_y_profile(obj, prop, iNorm)
+        function plt = plot_y_profile(obj, x, prop, ax)
+            if nargin < 4 || isempty(ax)
+                ax = gca;
+                disp('Creating axes')
+            end
 
+            [q, i] = BLprof(obj,x,prop);
+            size(q);
+            plot(ax, q, obj.yBL(i,:))
         end
 
         function [locus_line, eq_line] = plot_H_Pr_locus(obj, ax, ploteq, xrange, fmt, lineColour)

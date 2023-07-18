@@ -1,4 +1,4 @@
-classdef DNS_case < handle
+    classdef DNS_case < handle
     %  DNS_CASE Class containing 3DNS case information and methods to read
     %  and postprocess results
 
@@ -47,6 +47,7 @@ classdef DNS_case < handle
     properties (Dependent = true)
         ftrip;
         Re_k;        % Trip Reynolds number
+        trip_Re_x;
     end
 
     methods
@@ -194,7 +195,6 @@ classdef DNS_case < handle
             np = 'ip';
             while nb ~= 0 && ~ismember(nb, obj.blk.oblocks)
                 obj.blk.oblocks(end+1) = nb;
-
                 if obj.blk.next_patch{ib}.(np) == 1
                     obj.blk.oblocks_flip(end+1) = 0;
                     nb = obj.blk.next_block{nb}.ip;
@@ -206,6 +206,43 @@ classdef DNS_case < handle
                 end
                 ib = obj.blk.oblocks(end);
             end
+            
+        end
+
+        function calculate_wall_distance(obj)
+            ib = obj.blk.oblocks(1);
+            if (obj.blk.next_block{ib}.jp == 0 ...
+                        && obj.blk.next_patch{ib}.jp == 3)
+                jsurf = size(obj.blk.x{ib},2);
+            else
+                jsurf = 1;
+            end
+            xprof = [];
+            yprof = [];
+            for ib = obj.blk.oblocks
+                xprof = [xprof obj.blk.x{ib}(:,jsurf)'];
+                yprof = [yprof obj.blk.y{ib}(:,jsurf)'];
+            end
+            if obj.pitch ~= 0
+                xprof = [xprof xprof];
+                yprof = [(yprof - obj.pitch) yprof];
+            end
+            xnow = obj.blk.x;
+            ynow = obj.blk.y;
+            [~,mb] = max(prod(obj.blk.blockdims(:,1:2),2));
+            parfor ib = 1:obj.NB
+                [ni, nj] = size(xnow{ib});
+                for i=1:ni
+                    if ib == mb && mod(i,20) == 0
+                        fprintf('i=%d/%d\n',[i,ni])
+                    end
+                    for j=1:nj
+                        dist = sqrt((xprof - xnow{ib}(i,j)).^2 + (yprof - ynow{ib}(i,j)).^2);
+                        walldist{ib}(i,j) = min(dist);
+                    end
+                end
+            end
+            obj.blk.walldist = walldist;
         end
 
         function slice = readSingleKSlice(obj,numslice)
@@ -385,17 +422,26 @@ classdef DNS_case < handle
 
         function readStartEndFlow(obj)
 
-            fid = fopen(fullfile(obj.runpath,'mean_time.txt'),'r');
+            fid = fopen(fullfile(obj.runpaths{1},'mean_time.txt'),'r');
             while ~feof(fid) % Use lastest mean files
                 temp=fgetl(fid);
             end
 %                 temp = fgetl(fid);
             fclose(fid);
             temp = str2num(temp);
-            nMean = temp(1)
+            nMeanStart = temp(1)-1
 
-            obj.startFlow = spanAveSlice(obj.runpath,obj.blk,obj.gas,obj.bcs,obj.casetype,nMean-1);
-            obj.endFlow = spanAveSlice(obj.runpath,obj.blk,obj.gas,obj.bcs,obj.casetype,nMean);
+            fid = fopen(fullfile(obj.runpaths{end},'mean_time.txt'),'r');
+            while ~feof(fid) % Use lastest mean files
+                temp=fgetl(fid);
+            end
+%                 temp = fgetl(fid);
+            fclose(fid);
+            temp = str2num(temp);
+            nMeanEnd = temp(1)
+
+            obj.startFlow = spanAveSlice(obj.runpaths{1},obj.blk,obj.gas,obj.bcs,obj.casetype,nMeanStart);
+            obj.endFlow = spanAveSlice(obj.runpaths{end},obj.blk,obj.gas,obj.bcs,obj.casetype,nMeanEnd);
 
         end
 
@@ -417,6 +463,18 @@ classdef DNS_case < handle
                 ishere = false;
             end
             obj.meanFlow = meanSlice(obj.runpath,obj.blk,obj.gas,obj.bcs,obj.casetype,ishere);
+        end
+
+        function inst2mean(obj,slice)
+            obj.meanFlow = meanSlice([],obj.blk,obj.gas,obj.bcs);
+            obj.meanFlow.ro = slice.ro;
+            obj.meanFlow.u = slice.u;
+            obj.meanFlow.v = slice.v;
+            obj.meanFlow.w = slice.w;
+            obj.meanFlow.Et = slice.Et;
+            obj.meanFlow.pbar = slice.p;
+            obj.meanFlow.Tbar = slice.T;
+            obj.meanFlow.getBCs;
         end
 
         function readMeanFlows(obj, calc_s_unst)
@@ -650,7 +708,7 @@ classdef DNS_case < handle
             %set(ax, 'FontSize', 12)
         end
 
-        function p = inletProf(obj,slice,prop,ax)
+        function p = plotInletProf(obj,slice,prop,ax)
             if nargin < 4 || isempty(ax)
                 ax = gca;
             end
@@ -663,6 +721,21 @@ classdef DNS_case < handle
             [ynow, inds] = unique(ynow);
             propnow = propnow(inds);
             p = plot(ax,propnow,ynow);
+
+        end
+
+        function [q,ynow] = inletProf(obj,slice,prop)
+            propnow = [];
+            ynow = [];
+            for nb = obj.blk.inlet_blocks{1}
+                ynow = [ynow; obj.blk.y{nb}(1,:)];
+                propnow = [propnow; slice.(prop){nb}(1,:)];
+            end
+            [ynow, inds] = unique(ynow);
+            propnow = propnow(inds);
+            [ynow, inds] = sort(ynow);
+            propnow = propnow(inds);
+            q = propnow;
 
         end
 
@@ -912,21 +985,57 @@ classdef DNS_case < handle
                     obj.trip.nbumps = input('nbumps:');
             end
 
-            [obj.trip.nb, obj.trip.i] = obj.x2point(x);
-            obj.trip.x = obj.blk.x{obj.trip.nb}(obj.trip.i,end);
-            obj.trip.y = obj.blk.y{obj.trip.nb}(obj.trip.i,end);
+            points = obj.x2point(x);
+            obj.trip.x = obj.blk.x{points{1}.nb}(points{1}.i,end);
+            obj.trip.y = obj.blk.y{points{1}.nb}(points{1}.i,end);
+            obj.trip.x2 = obj.blk.x{points{2}.nb}(points{2}.i,end);
+            obj.trip.y2 = obj.blk.y{points{2}.nb}(points{2}.i,end);
             obj.iTrip = true;
 
         end
 
-        function [nb, ni] = x2point(obj, x)
+        function point = x2point(obj, x)
             % Find closest point on top surface
+            xprof = [];
+            nbprof = [];
+            iprof = [];
             for i=1:length(obj.blk.oblocks)
-                [mindist(i), ind(i)] = min(abs(obj.blk.x{obj.blk.oblocks(i)}(:,end).*double(obj.blk.y{obj.blk.oblocks(i)}(:,end)>0) - x));
+                ib = obj.blk.oblocks(i);
+                if (obj.blk.next_block{ib}.jp == 0) && (obj.blk.next_patch{ib}.jp == 3)
+                    xnow = obj.blk.x{ib}(:,end)';
+                else
+                    xnow = obj.blk.x{ib}(:,1)';
+                end
+                is = 1:length(xnow);
+                if obj.blk.oblocks_flip(i)
+                    xnow = flip(xnow);
+                    is = flip(is);
+                end
+                xprof = [xprof xnow];
+                nbprof = [nbprof ib*ones(size(xnow))];
+                iprof = [iprof is];
             end
-            [~,n] = min(mindist);
-            nb = obj.blk.oblocks(n);
-            ni = ind(n);
+            ni = length(xprof);
+            [~,iLE] = min(xprof);
+            [~,iTE] = max(xprof);
+            iLE = iLE+ni;
+            iTE = iTE+ni;
+            xprof = [xprof xprof xprof];
+            iprof = [iprof iprof iprof];
+            nbprof = [nbprof nbprof nbprof];
+            xss = xprof(iLE:iTE);
+            xps = xprof(iTE:iLE+ni);
+            iss = iprof(iLE:iTE);
+            ips = iprof(iTE:iLE+ni);
+            nbss = nbprof(iLE:iTE);
+            nbps = nbprof(iTE:iLE+ni);
+
+            [~, i1] = min(abs(xss-x));
+            [~, i2] = min(abs(xps-x));
+            point{1}.i = iss(i1);
+            point{1}.nb = nbss(i1);
+            point{2}.i = ips(i2);
+            point{2}.nb = nbps(i2);
         end
 
         function value = get.ftrip(obj)
@@ -1007,7 +1116,8 @@ classdef DNS_case < handle
                 end
 
                 fclose(fid);
-                [obj.trip.nb, obj.trip.i] = obj.x2point(xtmp);
+                point = obj.x2point(xtmp);
+                obj.trip.nb = point{1}.nb; obj.trip.i = point{1}.i;
                 obj.trip.x = obj.blk.x{obj.trip.nb}(obj.trip.i,end);
                 obj.trip.y = obj.blk.y{obj.trip.nb}(obj.trip.i,end);
                 obj.iTrip = true;
@@ -1037,6 +1147,10 @@ classdef DNS_case < handle
                     case 4
                         fprintf(fid, '%d\n', obj.trip.mode);
                         fprintf(fid,'%20.16e %20.16e %20.16e %d\n', obj.trip.scale, obj.trip.x, obj.trip.y, obj.trip.nbumps);
+                    case 5
+                        fprintf(fid, '%d\n', obj.trip.mode);
+                        fprintf(fid,'%20.16e %20.16e %20.16e %d\n', obj.trip.scale, obj.trip.x, obj.trip.y, obj.trip.nbumps);
+                        fprintf(fid,'%20.16e %20.16e\n', obj.trip.x2, obj.trip.y2);
                 end
                 fclose(fid);
             end
@@ -1047,7 +1161,7 @@ classdef DNS_case < handle
             obj.RANSSlices{turb.mod} = RANSSlice(ransdir,data,obj.blk,obj.gas);
         end
 
-        function [e_unst, e_conv, e_diss, e_irrev, e_rev] = entropy_budget(obj, normalise)
+        function [e_unst, e_conv, e_diss, e_irrev, e_rev, e_n] = entropy_budget(obj, normalise)
 
             if nargin < 2
                 normalise = false;
@@ -1071,6 +1185,7 @@ classdef DNS_case < handle
             e_diss = obj.area_integral(obj.meanFlow.diss_T, regions);
             e_irrev = obj.area_integral(obj.meanFlow.irrev_gen, regions);
             e_rev = obj.area_integral(rev_prop, regions);
+            e_n = (e_conv + e_unst) - (e_diss + e_irrev + e_rev);
 
             if normalise
                 for i=1:length(regions)
@@ -1079,6 +1194,7 @@ classdef DNS_case < handle
                     e_diss(i) = e_diss(i)/abs(e_conv(i));
                     e_irrev(i) = e_irrev(i)/abs(e_conv(i));
                     e_rev(i) = e_rev(i)/abs(e_conv(i));
+                    e_n(i) = e_n(i)/abs(e_conv(i));
                 end
             else
                 factor = abs(e_diss(1));
@@ -1088,6 +1204,7 @@ classdef DNS_case < handle
                     e_diss(i) = e_diss(i)/factor;
                     e_irrev(i) = e_irrev(i)/factor;
                     e_rev(i) = e_rev(i)/factor;
+                    e_n(i) = e_n(i)/factor;
                 end
             end
 
@@ -1690,6 +1807,13 @@ classdef DNS_case < handle
             end
             set(gca, 'XTickLabelRotation',20)
         end
+
+        function value = get.trip_Re_x(obj)
+            if isempty(obj.trip)
+                value = [];
+            else
+            end
+        end
         
         function value = get.Re_k(obj)
             if isempty(obj.trip)
@@ -1778,6 +1902,15 @@ classdef DNS_case < handle
         function interpInstFlow(obj, newcase)
             for ib = 1:obj.NB
                 oldFlow = volFlowBlock(obj.runpath, ib, obj.blk, obj.gas, obj.casetype);
+                newFlow = oldFlow.interpOntoNewGrid(newcase, ib);
+                newFlow.writeFlow(newcase.casepath)
+                clear oldFlow newFlow
+            end
+        end
+
+        function interpSlice(obj, slice, newcase)
+            for ib = 1:obj.NB
+                oldFlow = slice.slice2flowBlock(ib);
                 newFlow = oldFlow.interpOntoNewGrid(newcase, ib);
                 newFlow.writeFlow(newcase.casepath)
                 clear oldFlow newFlow
@@ -2064,65 +2197,7 @@ classdef DNS_case < handle
             write_plot3d_2d(obj.blk, path);
         end
 
-        function [flow vin ps] = init_shock_flow(obj, Min, xShock, Lshock, theta_in)
-            gam = obj.gas.gam;
-            cp = obj.gas.cp;
-            rgas = cp*(gam-1)/gam;
-            flow = volFlow;
-            flow.NB = 1;
-            flow.gam = obj.gas.gam;
-            flow.cp = obj.gas.cp;
-            flow.blk = obj.blk;
-            flow.gas = obj.gas;
-            flow.nk = obj.solver.nk;
-            flow.flowpath = obj.casepath;
-            flow.casetype = 'gpu';
-            [ni, nj] = size(obj.blk.x{1});
-
-            % Pre-shock conditions
-            fM = 1+0.5*(gam-1)*Min^2;
-            pin = obj.bcs.Poin*fM^(-gam/(gam-1));
-            tin = obj.bcs.Toin/fM;
-            roin = pin/(rgas*tin);
-            vin = Min*sqrt(gam*rgas*tin);
-            Etin = pin/(gam-1) + 0.5*roin*vin^2;
-
-            % Post shock conditions
-            Ms = sqrt(fM/(gam*Min^2 - 0.5*(gam-1)));
-            ps = pin*(1+2*gam*(Min^2-1)/(gam+1));
-            ros = 0.5*roin*(gam+1)*Min^2/fM;
-            Ts = ps/(ros*rgas);
-            vs = Ms*sqrt(gam*rgas*Ts);
-            Ets = ps/(gam-1) + 0.5*ros*vs^2;
-
-            % BL profiles
-            if theta_in > 0
-                [vel_prof, po_prof, To_prof, T_prof] = blasius_bl(obj.bcs.Toin, vin, theta_in, obj.blk.y{1}(1,:), obj.gas);
-            else
-                vel_prof = ones(1, nj);
-                po_prof = ones(1, nj);
-                To_prof = ones(1, nj);
-                T_prof = ones(1, nj);
-            end
-
-            Et_prof = (roin./T_prof) .* ((obj.gas.cp/obj.gas.gam) * tin * T_prof + vin^2 * vel_prof.^2/2);
-            Et_prof = Et_prof/Et_prof(end);
-
-
-            blfn_vel = ones(ni,nj).*vel_prof;
-            blfn_ro = ones(ni, nj)./T_prof;
-            blfn_et = ones(ni,nj).*Et_prof;
-
-            shfn = tanh((flow.blk.x{1}-xShock)/Lshock);
-
-
-            nk = obj.solver.nk;
-            flow.v{1} = zeros(ni, nj, nk);
-            flow.w{1} = flow.v{1};
-            flow.u{1} = 0.5*((vin + vs) - (vin-vs)*shfn).*blfn_vel;
-            flow.ro{1} = 0.5*((roin + ros) - (roin-ros)*shfn).*blfn_ro;
-            flow.Et{1} = 0.5*((Etin+Ets) - (Etin-Ets)*shfn).*blfn_et;
-        end
+        
 
         function update_Min(obj, M)
             obj.bcs.vin = Vel_M(M, obj.bcs.Toin, obj.gas.cp, obj.gas.gam);
