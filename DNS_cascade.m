@@ -47,7 +47,7 @@ classdef DNS_cascade < DNS_case
             obj.blk.viewarea(4) = obj.blk.viewarea(4)+0.5*obj.pitch;
 %             obj.blk.viewarea(3) = obj.blk.viewarea(3)+0.5*obj.pitch;
             obj.blk.n_pitchwise_repeats = 4;
-            
+            obj.blk.pitch = obj.pitch;
         end
 
         function boundaries = getBoundaries(obj)
@@ -90,6 +90,13 @@ classdef DNS_cascade < DNS_case
 
         function newCase = instantiate(obj)
             newCase = DNS_channel;
+        end
+
+        function pi = P02P01(obj)
+
+            obj.meanFlow.blk.outlet_blocks{1} = [8 9];
+            obj.meanFlow.p0out / obj.bcs.Poin;
+
         end
 
 

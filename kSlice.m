@@ -1,4 +1,4 @@
-classdef kSlice < kCut
+    classdef kSlice < kCut
     % KSLICE Contains a 2D slice of the flow at k-boundary
     %   Detailed explanation goes here
 
@@ -21,7 +21,7 @@ classdef kSlice < kCut
             obj@kCut(blk, gas, bcs);
             disp('Constructing kSlice')
 
-            if nargin < 7
+            if nargin < 8
                 ishere = false;
             end
         

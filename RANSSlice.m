@@ -53,7 +53,7 @@ classdef RANSSlice < aveSlice
                         case 'hydra'
                             points.x_coordinate = data.Points_0;
                             points.y_coordinate = data.Points_1;
-                            points.nodenumber = 1:size(data,1);
+                            points.nodenumber = 1:Psize(data,1);
                     end
                     nodes = mesh2nodes(blk,points);
                 end
@@ -233,7 +233,7 @@ classdef RANSSlice < aveSlice
                     %value{nb} = (obj.mut{nb}.*DUDX.^2 + obj.mut{nb}.*(DUDY.^2+DVDX.^2) + obj.mut{nb}.*DVDY.^2);
                 end
             else
-               value = obj.Pr_koSST;
+               value = obj.mut_koSST;
             end
 
         end
@@ -250,7 +250,7 @@ classdef RANSSlice < aveSlice
             end
         end
 
-        function value = Pr_koSST(obj)
+        function value = mut_koSST(obj)
             value = cell(1,obj.NB);
             StRnow = obj.StR;
             for ib = 1:obj.NB
@@ -260,6 +260,10 @@ classdef RANSSlice < aveSlice
                 mutnow = 0.31*obj.ro{ib}.*obj.k{ib}./max(0.31*obj.omega{ib}, StRnow{ib}.*F2);
                 value{ib} = mutnow.*StRnow{ib}.^2;
             end
+        end
+
+        function value = Pr_koSST(obj)
+            value = cell(1,obj.NB);
         end
 
         function obj.set_mut(obj, value)

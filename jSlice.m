@@ -18,8 +18,11 @@ classdef jSlice < handle
         Y0;
         X;
         Z;
+        blk;
         gas;
+        bcs;
         pdyn;              % Freestream dynamic pressure
+        casepath;
     end
 
     properties (Dependent = true)
@@ -34,14 +37,19 @@ classdef jSlice < handle
     end
 
     methods
-        function obj = jSlice(casedir, nSlice, blk, gas)
+        function obj = jSlice(blk, gas, bcs, casedir, nSlice, time, casetype, ishere)
             
-            if nargin > 0
+            if nargin < 8
+                ishere = false;
+            end
+
+            if nargin > 3
                 obj.gas = gas;
                 obj.gam = gas.gam;
                 obj.cp = gas.cp;
                 obj.rgas = obj.cp*(1-1/obj.gam);
                 obj.nSlice = nSlice;
+                obj.time = time;
                 obj.ro = [];
                 obj.u = [];
                 obj.v = [];
@@ -51,11 +59,14 @@ classdef jSlice < handle
                 x = [];
                 y = [];
                 y0 = [];
+                if ~ishere
+                    casedir = [casedir '/j_cuts'];
+                end
                 for iblk=1:length(blk.oblocks)
                     nb = blk.oblocks(iblk);
-                    flopath = fullfile(casedir, 'j_cuts',  ['jcu2_' num2str(nb) '_' num2str(nSlice)]);
+                    flopath = fullfile(casedir, ['jcu2_' num2str(nb) '_' num2str(nSlice)]);
+                    nodpath = fullfile(casedir, ['jnd2_' num2str(nb) '_' num2str(nSlice)]);
                     flofile = fopen(flopath,'r');
-                    nodpath = fullfile(casedir, 'j_cuts', ['jnd2_' num2str(nb) '_' num2str(nSlice)]);
                     nodfile = fopen(nodpath,'r');
                     A = fread(flofile,inf,'float64');
                     A = reshape(A,5,length(A)/5);
@@ -132,9 +143,9 @@ classdef jSlice < handle
                     ds = sqrt(dx^2 + dy^2);
                     obj.ssurf(i) = obj.ssurf(i-1)+ds;
                 end
-                z = linspace(0,blk.span,blk.nk{1});
+                z = linspace(0,blk.span,blk.nk);
                 [obj.Z, obj.X] = meshgrid(z,obj.ssurf);
-                obj.Y0 = repmat(y0',1,blk.nk{1});
+                obj.Y0 = repmat(y0',1,blk.nk);
             end
         end
 

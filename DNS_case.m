@@ -57,17 +57,18 @@
             if nargin > 0 && ~isempty(casename)
                 obj.casename = casename;
                 obj.casepath = fullfile(pwd,obj.casename);
+                obj.runpaths = {};
                 
                 if nargin < 2 || isempty(run)
                     obj.runpath = obj.casepath;
+                    obj.runpaths{1} = obj.runpath;
                     obj.run = [];
                 elseif length(run) == 1
                     obj.run = run;
                     obj.runpath = fullfile(obj.casepath,['run' num2str(obj.run)]);
-                    obj.runpaths = obj.runpath;
+                    obj.runpaths{1} = obj.runpath;
                 else
                     obj.run = run;
-                    obj.runpaths = {};
                     obj.runpath = fullfile(obj.casepath,['run' num2str(obj.run(end))]); 
                     for ir = 1:length(run)
                         obj.runpaths{ir} = fullfile(obj.casepath,['run' num2str(obj.run(ir))]);
@@ -363,54 +364,109 @@
             
         end
 
-        function readJSlices(obj, runs, slicenums)
-            %READJSLICES Read in instantaneous j slices
+        function readJSlices(obj, slicenums, runs)
+            %READKSLICES Read in instantaneous j slices
             % Optional: numslices - only read last n slices if there are many
             
-            slicetime = readmatrix(fullfile(obj.runpath,'slice_time.txt'));
-            slices = dir(fullfile(obj.runpath,'j_cuts','jcu2_4_*'));
-            %obj.nSlices = length(slices);
-            obj.nSlices = length(slices);
-            for i=1:length(slices)
-                inds(i) = str2num(slices(i).name(8:end));
+            exist("runs",'var')
+            exist("numslices",'var')
+            obj.jSlices = jSlice.empty;
+            obj.nSlices = 0;
+            if nargin < 3 || isempty(runs)
+                runs = obj.run;
             end
-            [~,inds] = sort(inds);
-            slices = slices(inds);
-            if nargin == 1
-                for i=1:obj.nSlices
-                    fprintf('Reading slice %d/%d\n',[i obj.nSlices])
+            
+            [paths2read, slicenums2read, time2read, ishere] = obj.getSlicePaths(runs);
+
+            if exist("slicenums",'var')
+                if length(slicenums) == 1
+                    slicenums2read = slicenums2read(end-slicenums+1:end);
+                    paths2read = paths2read(end-slicenums+1:end);
+                    time2read = time2read(end-slicenums+1:end);
+                else
+                    slicenums2read = slicenums2read(slicenums);
+                    paths2read = paths2read(slicenums);
+                    time2read = time2read(slicenums);
+                end
+            end
+
+            obj.nSlices = length(slicenums2read);
+
+            for i=1:obj.nSlices
+                fprintf('Reading slice %d/%d\n',[i obj.nSlices])
+                obj.jSlices(i) = jSlice(obj.blk,obj.gas,paths2read{i},slicenums2read(i),time2read(i),obj.casetype,ishere);
+                %slices(i).time = slicetime(i,2);
+            end
+            
+        end
+
+        function [paths2read, slicenums2read, time2read, ishere] = getSlicePaths(obj, runs)
+
+            if nargin < 2 || isempty(runs)
+                runs = [];
+            end
+
+            paths2read={};
+            slicenums2read=[];
+            time2read = [];
+
+            if isempty(runs)
+                ishere = true;
+                switch obj.casetype
+                    case 'cpu'
+                        slicetime = readmatrix(fullfile(obj.runpath,'slice_time.txt'));
+                        slices = dir(fullfile(obj.runpath, ['kcu2_1_*']));
+                    case 'gpu'
+                        slicetime = readmatrix(fullfile(obj.runpath,'kslice_time.txt'));
+                        slices = dir(fullfile(obj.runpath,'kcut_1_*'));
+                end
+                for i=1:length(slices)
+                        inds(i) = str2num(slices(i).name(8:end));
+                end
+                [~,inds] = sort(inds);
+                slices = slices(inds);
+                for i=1:length(slices)
                     slicenum = str2num(slices(i).name(8:end));
-                    obj.jSlices(i) = jSlice(obj.runpath,slicenum,obj.blk,obj.gas);
-                    %slices(i).time = slicetime(i,2);
-                end
-            elseif exist("slicenums",'var') == 1
-                n=0;
-                for i=slicenums
-                    n=n+1;
-                    fprintf('Reading slice %d/%d\n',[n length(slicenums)])
-                    slicenum = str2num(slices(i+obj.nSlices-slicenums(i)).name(8:end));
-                    obj.jSlices(i) = jSlice(obj.runpath,slicenum,obj.blk,obj.gas);
-                    %slices(i).time = slicetime(i,2);
-                end
-            elseif exist("runs",'var') == 1
-                runs
-                obj.nSlices = 0;
-                slicenums=[];
-                for nrun=runs
-                    runpath = fullfile(obj.casepath,['run' num2str(nrun)]);
-                    slices = dir(fullfile(runpath,'j_cuts','jcu2_4_*'));
-                    obj.nSlices = obj.nSlices + length(slices);
-                    read = 0;
-                    for i=1:length(slices)
-                        read = read+1;
-                        slicenum = str2num(slices(i).name(8:end));
-                        slicenums(end+1) = slicenum;
-                        obj.jSlices(end+1) = jSlice(runpath,slicenum,obj.blk,obj.gas);
+                    slicenums2read(end+1) = slicenum;
+                    paths2read{i} = obj.runpath;
+                    for j=1:size(slicetime,1)
+                        if slicetime(j,1) == slicenum
+                            time2read(end+1) = slicetime(j,2);
+                        end
                     end
                 end
-                [~,inds] = sort([obj.jSlices.nSlice]);
-                obj.jSlices = obj.jSlices(inds);
 
+            else
+                ishere=false;
+                for run=runs
+                    runpath = fullfile(obj.casepath,['run' num2str(run)]);
+                    switch obj.casetype
+                        case 'cpu'
+                            slicetime = readmatrix(fullfile(runpath,'slice_time.txt'));
+                            slices = dir(fullfile(runpath,'k_cuts','kcu2_1_*'));
+                        case 'gpu'
+                            slicetime = readmatrix(fullfile(runpath,'kslice_time.txt'));
+                            slices = dir(fullfile(runpath,'k_cuts','kcut_1_*'));
+                    end
+                    
+                    %obj.nSlices = obj.nSlices + length(slices);
+                    inds = [];
+                    for i=1:length(slices)
+                        inds(i) = str2num(slices(i).name(8:end));
+                    end
+                    [~,inds] = sort(inds);
+                    slices = slices(inds);
+                    for i=1:length(slices)
+                        paths2read{end+1} = runpath;
+                        slicenum = str2num(slices(i).name(8:end));
+                        slicenums2read(end+1) = slicenum;
+                        for j=1:size(slicetime,1)
+                            if slicetime(j,1) == slicenum
+                                time2read(end+1) = slicetime(j,2);
+                            end
+                        end
+                    end
+                end
             end
         end
 
@@ -462,7 +518,18 @@
             else
                 ishere = false;
             end
-            obj.meanFlow = meanSlice(obj.runpath,obj.blk,obj.gas,obj.bcs,obj.casetype,ishere);
+            try
+                obj.meanFlow = meanSlice(obj.runpath,obj.blk,obj.gas,obj.bcs,obj.casetype,ishere);
+            catch
+                try
+                    data = load(fullfile(obj.runpath, 'slicesAve.mat'), 'slicesAve');
+                    obj.meanFlow = data.slicesAve;
+                    fprintf('Read meanSlice computed from averaging slices\n')
+                catch
+                    fprintf('Could not find mean flow\n')
+                end
+            end
+
         end
 
         function inst2mean(obj,slice)
@@ -509,7 +576,7 @@
 
         function readInflowTurb(obj)
             %READINFLOWTURB Read inflow turbulence file
-            obj.inflowTurb = volTurbulence(obj.casepath,obj.bcs.ilength,obj.blk.nk,obj.bcs.lturb,obj.y_inlet,obj.solver.span);
+            obj.inflowTurb = volTurbulence(obj.casepath,obj.y_inlet,obj.bcs.ilength,obj.blk.nk,obj.bcs.lturb,obj.solver.span);
         end
 
         function readProbes(obj)
@@ -633,33 +700,56 @@
 
             fprintf(f,'%d %d\n',[obj.nProbes obj.nSkip]);
             for ip = 1:obj.nProbes
-                fprintf(f,'%d %d %d %d\n', [obj.probes{ip}.nb objkPl.probes{ip}.i obj.probes{ip}.j obj.probes{ip}.k]);
+                fprintf(f,'%d %d %d %d\n', [obj.probes{ip}.nb obj.probes{ip}.i obj.probes{ip}.j obj.probes{ip}.k]);
             end
             
             fclose(f);
         end
 
-        function s = kPlot(obj,slice,prop,ax,lims,label,viewarea,nrepeats)
+        function s = kPlot(obj,slice,prop, varargin) % ax,lims,label,viewarea,nrepeats, rot)
 
-            repeats = 1;
+
+            defaultAx = gca;
+            defaultLims = [];
+            defaultLabel = [];
+            if ~isempty(obj.blk.viewarea)
+                defaultViewArea = obj.blk.viewarea;
+            else
+                defaultViewArea = [];
+            end
             if isfield(obj.blk, "n_pitchwise_repeats")
-                repeats = obj.blk.n_pitchwise_repeats;
+                defaultRepeats = obj.blk.n_pitchwise_repeats;
+            else
+                defaultRepeats = 1;
             end
-            if nargin > 7 && ~isempty(repeats)
-                repeats = nrepeats;
-            end
-            
-            if nargin < 4 || isempty(ax)
-                ax = gca;
-            end
+            defaultRot = 0;
 
-            %slice
+            p = inputParser;
+
+            addParameter(p, 'ax', defaultAx);
+            addParameter(p, 'lims', defaultLims);
+            addParameter(p, 'label', defaultLabel);
+            addParameter(p, 'viewarea', defaultViewArea);
+            addParameter(p, 'nrepeats', defaultRepeats);
+            addParameter(p, 'rot', defaultRot);
+            addParameter(p, 'Interpreter', 'none');
+
+            parse(p, varargin{:});
+
+            lims = p.Results.lims;
+            label = p.Results.label;
+            repeats = p.Results.nrepeats;
+
+
+            R = [cosd(p.Results.rot) -sind(p.Results.rot); sind(p.Results.rot) cosd(p.Results.rot)];
+            ax = p.Results.ax;
+
             if isempty(slice)
-                disp('here')
                 q = obj.(prop);
             else
                 q = slice.(prop);
             end
+
             hold on
             offset = 0;
             if repeats > 2
@@ -667,45 +757,52 @@
             end
             for ir = 1:repeats
             for i=1:slice.NB
-                s = pcolor(ax, obj.blk.x{i}, obj.blk.y{i}+offset+(ir-1)*obj.pitch, q{i});
+
+                xnow = obj.blk.x{i};
+                ynow = obj.blk.y{i}+offset+(ir-1)*obj.pitch;
+                ni = size(xnow,1);
+
+                coords = [reshape(xnow, 1, []); reshape(ynow, 1, [])];
+                coords = R' * coords;
+
+                xnow = reshape(coords(1,:), ni, []);
+                ynow = reshape(coords(2,:), ni, []);
+
+
+                s = pcolor(ax, xnow, ynow, q{i});
             end
             end
             shading('interp')
             axis equal
-            if nargin > 6 && ~isempty(viewarea)
-                aspect = [(viewarea(2)-viewarea(1)) (viewarea(4)-viewarea(3)) 1];
+            if ~isempty(p.Results.viewarea)
+                aspect = [(p.Results.viewarea(2)-p.Results.viewarea(1)) (p.Results.viewarea(4)-p.Results.viewarea(3)) 1];
                 pbaspect(aspect)
-                axis(viewarea);
-            elseif ~isempty(obj.blk.viewarea)
-                pbaspect(obj.blk.aspect);
-                axis(obj.blk.viewarea);
+                axis(p.Results.viewarea);
             end
+
             if string(prop) == "schlieren"
                 colormap(gray)
                 map = colormap;
                 map = flip(map,1);
                 colormap(map);
-                if nargin < 6
+                if isempty(label)
                     label = '$|\nabla \rho|/\rho$';
                 end
-            elseif ismember(string(prop),["vortZ","v","w"])
+            elseif ismember(string(prop),["vortZ","v","w", "advK"])
                 val = max(abs(caxis));
                 caxis([-val val]);
                 colormap(redblue)
             end
                
-            
             cb = colorbar;
-            if nargin > 4 && ~isempty(lims)
-                caxis(lims)
+            if ~isempty(lims)
+                caxis(lims);
             end
-            if nargin > 5 || exist("label",'var')
-                label;
+            if ~isempty(label)
                 cb.Label.Interpreter = 'latex';
                 cb.Label.String = label;
             end
             
-            %set(ax, 'FontSize', 12)
         end
 
         function p = plotInletProf(obj,slice,prop,ax)
@@ -752,6 +849,8 @@
                         lims = [0 800];
                     case 'vortZ'
                         lims = 1e5*[-0.7 0.7];
+                    case 'w'
+                        lims = [-3 3];
                 end
             end
             if nargin < 6 || isempty(label)
@@ -783,20 +882,91 @@
         end
                 
 
-        function kContour(obj,slice,prop,ax,levels,label,fmt,linew)
+        function s = kContour(obj,slice,prop,varargin)%,ax,levels,label,fmt,linew)
+
+            defaultAx = gca;
+            defaultLevels = 1;
+            defaultLabel = [];
+            defaultLineW = 1;
+            if ~isempty(obj.blk.viewarea)
+                defaultViewArea = obj.blk.viewarea;
+            else
+                defaultViewArea = [];
+            end
+            if isfield(obj.blk, "n_pitchwise_repeats")
+                defaultRepeats = obj.blk.n_pitchwise_repeats;
+            else
+                defaultRepeats = 1;
+            end
+            defaultRot = 0;
+
+            p = inputParser;
+
+            addParameter(p, 'ax', defaultAx);
+            addParameter(p, 'levels', defaultLevels);
+            addParameter(p, 'label', defaultLabel);
+            addParameter(p, 'fmt', 'k');
+            addParameter(p, 'LineWidth', defaultLineW);
+            addParameter(p, 'FontSize', 12);
+            addParameter(p, 'viewarea', defaultViewArea);
+            addParameter(p, 'nrepeats', defaultRepeats);
+            addParameter(p, 'rot', defaultRot);
+
+            parse(p, varargin{:});
+
+            levels = p.Results.levels;
+            label = p.Results.label;
+            repeats = p.Results.nrepeats;
+            fmt = p.Results.fmt;
+            linew = p.Results.LineWidth;
+
+
+            if isempty(slice)
+                disp('here')
+                q = obj.(prop);
+            else
+                q = slice.(prop);
+            end
+            hold on
+            for i=1:slice.NB
+                a = smoothdata(q{i},1);
+                a = smoothdata(a,2);
+                [~,s] = contour(p.Results.ax, obj.blk.x{i}, obj.blk.y{i}, a, levels, fmt, 'LineWidth', linew);
+            end
+            if ~isempty(p.Results.viewarea)
+                aspect = [(p.Results.viewarea(2)-p.Results.viewarea(1)) (p.Results.viewarea(4)-p.Results.viewarea(3)) 1];
+                pbaspect(aspect)
+                axis(p.Results.viewarea);
+            end
+            if string(prop) == "schlieren"
+                if nargin < 6
+                    %label = '$|\nabla \rho|/\rho$';
+                end
+            end
+            if ~isempty(label)
+                label;
+                cb.Label.Interpreter = 'latex';
+                cb.Label.String = label;
+            end
+            
+            set(p.Results.ax, 'FontSize', p.Results.FontSize)
+        end
+
+        
+        function s = BLkPlot(obj,slice,prop,ax,lims,label,viewarea,nrepeats)
+
+            repeats = 1;
+            if isfield(obj.blk, "n_pitchwise_repeats")
+                repeats = obj.blk.n_pitchwise_repeats;
+            end
+            if nargin > 7 && ~isempty(repeats)
+                repeats = nrepeats;
+            end
             
             if nargin < 4 || isempty(ax)
                 ax = gca;
             end
-            if nargin < 7 || isempty(fmt)
-                fmt = 'k';
-            end
-            if nargin < 8 || isempty(linew)
-                linew = 0.2;
-            end
-%             if nargin < 9 || isempty(falpha)
-%                 falpha = 1.0;
-%             end
+
             %slice
             if isempty(slice)
                 disp('here')
@@ -805,58 +975,123 @@
                 q = slice.(prop);
             end
             hold on
-            for i=1:slice.NB
-                s = contour(ax, obj.blk.x{i}, obj.blk.y{i}, q{i}, levels, 'k', 'LineWidth', linew);
+            offset = 0;
+            if repeats > 2
+                offset = -obj.pitch;
+            end
+            xLE = slice.xO(1,1);
+            yLE = slice.yO(1,1);
+            xTE = slice.xO(end,1);
+            yTE = slice.yO(end,1);
+
+            stag = atan((yTE-yLE)/(xTE-xLE));
+            R = [cos(stag) (-sin(stag)); sin(stag) cos(stag)];
+            R = inv(R);
+            for ir = 1:repeats
+                for ib=1:slice.NB
+                    xnow = [];
+                    ynow = [];
+                    [ni, nj] = size(obj.blk.x{ib});
+                    for i=1:ni
+                        for j=1:nj
+                            r = R*[obj.blk.x{ib}(i,j); obj.blk.y{ib}(i,j)+(ir-1)*obj.pitch];
+                            xnow(i,j) = r(1);
+                            ynow(i,j) = r(2);
+                        end
+                    end
+                    s = pcolor(ax, xnow, ynow, q{ib});
+                end
+            end
+            shading('interp')
+            axis equal
+            if nargin > 6 && ~isempty(viewarea)
+                aspect = [(viewarea(2)-viewarea(1)) (viewarea(4)-viewarea(3)) 1];
+                pbaspect(aspect)
+                axis(viewarea);
+            elseif ~isempty(obj.blk.viewarea)
+                pbaspect(obj.blk.aspect);
+                axis(obj.blk.viewarea);
             end
             if string(prop) == "schlieren"
+                colormap(gray)
+                map = colormap;
+                map = flip(map,1);
+                colormap(map);
                 if nargin < 6
-                    %label = '$|\nabla \rho|/\rho$';
+                    label = '$|\nabla \rho|/\rho$';
                 end
+            elseif ismember(string(prop),["vortZ","v","w"])
+                val = max(abs(caxis));
+                caxis([-val val]);
+                colormap(redblue)
+            end
+               
+            
+            if nargin > 4 && ~isempty(lims)
+                caxis(lims)
             end
             if nargin > 5 || exist("label",'var')
                 label;
+                cb = colorbar('southoutside');
                 cb.Label.Interpreter = 'latex';
                 cb.Label.String = label;
             end
             
-            set(ax, 'FontSize', 12)
+            %set(ax, 'FontSize', 12)
         end
 
-        
-
-        function BLkPlot(obj,slice,prop,ax,lims,label)
-            if nargin < 4 || isempty(ax)
-                ax = gca;
-            end
-            if isempty(slice)
-                disp('here')
-                q = obj.(prop);
-            else
-                q = slice.(prop);
-            end
-            hold on
-            for i=1:slice.NB
-                pcolor(ax, obj.blk.x{i}, obj.blk.y{i}, q{i});
-            end
-            shading('interp')
-            
-            axis equal
-            pbaspect([5 2 1])
-
-            axis([0.4 0.9 0 0.2])
-            cb = colorbar('southoutside');
-            if nargin > 4 && ~isempty(lims)
-                caxis(lims)
-            end
-            nargin
-            if nargin > 5 && ~isempty(label)
-                label;
-                %cb.Label.Interpreter = 'latex';
-                cb.Label.String = label;
-            end
-
-            set(ax, 'FontSize', 12)
-        end
+%         function BLkPlot(obj,slice,prop,ax,lims,label)
+%             if nargin < 4 || isempty(ax)
+%                 ax = gca;
+%             end
+%             if isempty(slice)
+%                 disp('here')
+%                 q = obj.(prop);
+%             else
+%                 q = slice.(prop);
+%             end
+%             hold on
+%             
+%             xLE = slice.xO(1,1);
+%             yLE = slice.yO(1,1);
+%             xTE = slice.xO(end,1);
+%             yTE = slice.yO(end,1);
+% 
+%             stag = atan((yTE-yLE)/(xTE-xLE));
+%             R = [cos(stag) (-sin(stag)); sin(stag) cos(stag)];
+%             R = inv(R);
+%             for ib=1:slice.NB
+%             xnow = [];
+%             ynow = [];
+%                 [ni nj] = size(obj.blk.x{ib});
+%                 for i=1:ni
+%                     for j=1:nj
+%                         r = R*[obj.blk.x{ib}(i,j); obj.blk.y{ib}(i,j)];
+%                         xnow(i,j) = r(1);
+%                         ynow(i,j) = r(2);
+%                     end
+%                 end
+%                 pcolor(ax, xnow, ynow, q{ib});
+%             end
+%             shading('interp')
+%             
+%             axis equal
+%             pbaspect([5 2 1])
+% 
+%             %axis([0.4 0.9 0 0.2])
+%             cb = colorbar('southoutside');
+%             if nargin > 4 && ~isempty(lims)
+%                 caxis(lims)
+%             end
+%             nargin
+%             if nargin > 5 && ~isempty(label)
+%                 label;
+%                 %cb.Label.Interpreter = 'latex';
+%                 cb.Label.String = label;
+%             end
+% 
+%             set(ax, 'FontSize', 12)
+%         end
 
         function jPlot(obj,slice,prop,ax,lims,label)
             
@@ -994,6 +1229,38 @@
 
         end
 
+        function getOffsetTripCoords(obj)
+            mode = input('Trip mode:');
+            x = input('x location:');
+            offset = input('Surface offset:');
+            switch mode
+                case 1
+                    obj.trip.amp = input('trip_amp:');
+                    obj.trip.scale = input('trip_scale:');
+                case {2, 3}
+                    obj.trip.scale = input('trip_scale:');
+                case 4
+                    obj.trip.scale = input('ttrip_scale:');
+                    obj.trip.nbumps = input('nbumps:');
+            end
+
+            points = obj.x2point(x);
+            x1 = obj.blk.x{points{1}.nb}(points{1}.i,end);
+            y1 = obj.blk.y{points{1}.nb}(points{1}.i,end);
+            x2 = obj.blk.x{points{2}.nb}(points{2}.i,end);
+            y2 = obj.blk.y{points{2}.nb}(points{2}.i,end);
+            
+            n = obj.meanFlow.surface_normal(x1);
+            x1 = x1+offset*n(1);
+            y1 = y1+offset*n(2);
+
+            disp('x1, y1:')
+            fprintf('%20.16e %20.16e\n', x1, y1);
+            disp('x2, y2:')
+            fprintf('%20.16e %20.16e\n', x2, y2);
+
+        end
+
         function point = x2point(obj, x)
             % Find closest point on top surface
             xprof = [];
@@ -1048,7 +1315,7 @@
                 dist2 = ((obj.blk.x{nb} - obj.trip.x).^2 + (obj.blk.y{nb} - obj.trip.y).^2);
                 if obj.trip.mode == 1
                     f = obj.trip.amp*exp(-dist2*obj.trip.scale);
-                    value{nb} = min(f,1.0);
+                    vagenerateue{nb} = min(f,1.0);
                 else
                     value{nb} = double(sqrt(dist2)<obj.trip.scale);
                 end
@@ -1834,6 +2101,24 @@
                 iplot = false;
             end
             switch obj.topology
+                case 1
+                    xrangePreShock = [0.1 0.45];
+                    xrangePostShock = [0.55 0.9];
+        
+                    regions = {};
+                    regions{1}.nb = 4;
+                    [~, regions{1}.is] = min(abs(obj.blk.x{4}(:,1) - xrangePreShock(1)));
+                    [~, regions{1}.ie] = min(abs(obj.blk.x{4}(:,1) - xrangePreShock(2)));
+                    regions{1}.js = 1;
+                    regions{1}.je = 192;
+                    regions{1}.label = "Pre-shock";
+                    
+                    regions{2}.nb = 4;
+                    [~, regions{2}.is] = min(abs(obj.blk.x{4}(:,1) - xrangePostShock(1)));
+                    [~, regions{2}.ie] = min(abs(obj.blk.x{4}(:,1) - xrangePostShock(2)));
+                    regions{2}.js = 1;
+                    regions{2}.je =  192;
+                    regions{2}.label = "Post-shock";
                 case 2
                     xrangePreShock = [0.16 0.59];
                     xrangePostShock = [0.70 0.98];
@@ -1912,7 +2197,7 @@
             for ib = 1:obj.NB
                 oldFlow = slice.slice2flowBlock(ib);
                 newFlow = oldFlow.interpOntoNewGrid(newcase, ib);
-                newFlow.writeFlow(newcase.casepath)
+                newFlow.writeFlow(newcase.casepath,newcase.casetype);
                 clear oldFlow newFlow
             end
         end
@@ -1950,7 +2235,7 @@
             for ip = 1:oldCase.nProbes
                 [i,j] = obj.find_ij(oldProbes{ip}.nb,oldProbes{ip}.x,oldProbes{ip}.y);
                 blkData.i = i; blkData.j = j;
-                blkData.k = obj.solver.nk/2;
+                blkData.k = ceil(obj.solver.nk/2);
                 blkData.x = obj.blk.x{oldProbes{ip}.nb}(i,j);
                 blkData.y = obj.blk.y{oldProbes{ip}.nb}(i,j);
                 blkData.nb = oldProbes{ip}.nb;
@@ -1998,9 +2283,180 @@
             end
         end
 
+        function slices2frames(obj, prop, lims, label, area, name, slicePlane, runs)
+
+            replot = false;
+
+            if nargin < 5 || isempty(area)
+                area = obj.blk.viewarea;
+                aspect = obj.blk.aspect;
+            else
+                aspect = [(area(2)-area(1))...
+                    (area(4)-area(3)) 1];
+            end
+            if nargin < 3 || isempty(lims)
+                switch prop
+                    case 'M'
+                        lims = [0 1.4];
+                    case 'tau_w'
+                        lims = [0 800];
+                    case 'vortZ'
+                        lims = 1e5*[-0.7 0.7];
+                    case 'T'
+                        lims = [50 300];
+                    case 'overlay'
+                        lims = 5e4*[-1 1];
+                end
+            end
+            if nargin < 4 || isempty(label)
+                switch prop
+                    case 'M'
+                        label = 'M';
+                    case 'tau_w'
+                        label = '\tau_w';
+                    case 'vortZ'
+                        label = '\omega_z';
+                    case 'T'
+                        label = ('T (K)');
+                end
+            end
+
+            if nargin < 7 || isempty(slicePlane)
+                slicePlane = 'k';
+            end
+
+            if nargin < 8 || isempty(runs)
+                runs = obj.run;
+            end
+
+            switch slicePlane
+                case 'k'
+                    var = ['k_' prop];
+                case 'j'
+                    var = ['j_' prop];
+            end
+
+            if isempty(runs)
+                vname = [];
+            elseif length(runs) == 1
+                vname = ['/run' num2str(runs)];
+            else
+                vname = ['/run' num2str(runs(1)) '-' num2str(runs(end))];
+            end
+            if nargin < 6 || isempty(name)
+                vname = [vname '_' var '.mp4"'];
+            else
+                vname = ['/run' num2str(runs(end)) '_' name '.mp4"'];
+            end
+
+            tempfolder = fullfile(obj.runpath,'temp');
+            mkdir(tempfolder);
+
+            [paths2read, slicenums2read, time2read, ishere] = obj.getSlicePaths(obj, runs);
+            
+
+            
+            for i = 1:len(paths2read)
+
+                imgfolder = fullfile(slices(i).casepath,'animation_images',var);
+                if ~exist(imgfolder, 'dir')
+                    mkdir(imgfolder);
+                end
+                fprintf('Plotting slice %d/%d\n',i,length(slices))
+                fname = fullfile(imgfolder,sprintf('img_%03d.png',slices(i).nSlice));
+                if ~exist(fname,'file') || replot
+
+                
+                    switch slicePlane
+                        case 'k'
+                            slice = kSlice(obj.blk,obj.gas,obj.bcs,paths2read{i},slicenums2read(i),time2read(i),obj.casetype,ishere);
+    
+                            repeats = 1;
+                            if isfield(obj.blk, "n_pitchwise_repeats")
+                                repeats = obj.blk.n_pitchwise_repeats;
+                            end
+                            h = figure('Visible','off');
+                            ax = axes(h);
+                          
+                            q = slice.(prop);
+                        
+                            hold on
+                            offset = 0;
+                            if repeats > 2
+                                offset = -obj.blk.pitch;
+                            end
+                            for ir = 1:repeats
+                            for i=1:slice.NB
+                                pcolor(ax, obj.blk.x{i}, obj.blk.y{i}+offset+(ir-1)*obj.blk.pitch, q{i});
+                            end
+                            end
+                            shading('interp')
+                            axis equal
+                            pbaspect(aspect)
+                            axis(area)
+                            axis off
+                            if ismember(string(prop),["vortZ","v","w"])
+                                colormap(redblue)
+                            end
+                            cb = colorbar(ax);
+                            if nargin > 4 && ~isempty(lims)
+                                clim(lims);
+                            end
+                            if nargin > 5 && ~isempty(label)
+                                cb.Label.String = label;
+                            end
+                            set(ax,'FontSize',12);
+                            exportgraphics(h, fpath, 'Resolution', 600);
+                        case 'j'
+                            slice = jSlice(obj.blk,obj.gas,paths2read{i},slicenums2read(i),time2read(i),obj.casetype,ishere);
+    
+                    end
+                end
+                clear slice
+            end
+
+        end
+
+        function frames2movie(obj,name,runs,framerate)
+            if nargin < 3 || isempty(runs)
+                runs = obj.runs;
+            end
+            if nargin < 4 || isempty(framerate)
+                framerate = 5;
+            end
+            tempfolder = fullfile(obj.runpath,'temp');
+            mkdir(tempfolder);
+            if isempty(runs)
+                folder = fullfile(obj.casepath,'animation_images',name);
+                copyfile([folder '/*.png'], tempfolder);
+            else
+                for r = runs
+                    folder = fullfile(obj.casepath,['run' num2str(r)], 'animation_images', name);
+                    copyfile([folder '/*.png'], tempfolder);
+                end
+                vname = fullfile(obj.casepath, obj.casename, name);
+            end
+            if isempty(runs)
+                vname = fullfile(obj.casepath, [obj.casename '_' name '.mp4']);
+            elseif length(runs) == 1
+                vname = fullfile(obj.casepath, ['run' num2str(runs(1)) '/' 'run' num2str(runs(1)) '_' name '.mp4']);
+            else
+                vname = fullfile(obj.casepath, ['run' num2str(runs(end)) '/' 'run' num2str(runs(1)) '-' ...
+                   num2str(runs(end)) '_' name '.mp4']);
+            end
+
+            system(['ffmpeg -framerate ' num2str(framerate) ' -pattern_type glob -i "' tempfolder '/*.png" '...
+                '-c:v libx264 -profile:v high -pix_fmt yuv420p -vf ' ...
+                '"pad=ceil(iw/2)*2:ceil(ih/2)*2" "' ...
+                 vname '"']);
+
+            rmdir(tempfolder,"s");
+
+        end
+
         function writeMovie(obj, slices, prop, lims, label, area, name, framerate)
             
-            replot = true;
+            replot = false;
 
             if nargin < 8
                 framerate = 5;
@@ -2015,7 +2471,7 @@
             if nargin < 4 || isempty(lims)
                 switch prop
                     case 'M'
-                        lims = [0 1.6];
+                        lims = [0 1.4];
                     case 'tau_w'
                         lims = [0 800];
                     case 'vortZ'
@@ -2024,6 +2480,8 @@
                         lims = [50 300];
                     case 'overlay'
                         lims = 5e4*[-1 1];
+                    case 'w'
+                        lims = [];
                 end
             end
             if nargin < 5 || isempty(label)
@@ -2043,13 +2501,31 @@
 %             if isempty(p)
 %                 parpool(16);
 %             end
-            switch class (slices(1))
+            readSlices = false;
+            switch class(slices(1))
                 case 'kSlice'
                     var = ['k_' prop];
+                    sliceType = 'kSlice';
                 case 'jSlice'
                     var = ['j_' prop];
+                    sliceType = 'jSlice';
+                case 'char'
+                    readSlices = true;
+                    [paths2read, slicenums2read, time2read, ishere] = obj.getSlicePaths(obj.run);
+                    switch slices(1)
+                        case 'k'
+                            var = ['k_' prop];
+                            sliceType = 'kSlice';
+                        case 'j'
+                            var = ['j_' prop];
+                            sliceType = 'jSlice';
+                    end
+                    slices = slicenums2read;
             end
-            if length(obj.run) == 1
+
+            if isempty(obj.run)
+                vname = [];
+            elseif length(obj.run) == 1
                 vname = ['/run' num2str(obj.run)];
             else
                 vname = ['/run' num2str(obj.run(1)) '-' num2str(obj.run(end))];
@@ -2066,23 +2542,56 @@
             %%
 
             for i=1:length(slices)
-                imgfolder = fullfile(slices(i).casepath,'animation_images',var);
+                
+                if readSlices
+                    nSlice = slicenums2read(i);
+                    imgfolder = fullfile(paths2read{i},'animation_images',var);
+                else
+                    nSlice = slices(i).nSlice;
+                    imgfolder = fullfile(slices(i).casepath,'animation_images',var);
+                end
+
                 if ~exist(imgfolder, 'dir')
                     mkdir(imgfolder);
                 end
+
                 fprintf('Plotting slice %d/%d\n',i,length(slices))
-                fname = fullfile(imgfolder,sprintf('img_%03d.png',slices(i).nSlice));
+
+                % Get path of frame and check if already plotted
+                fname = fullfile(imgfolder,sprintf('img_%03d.png',nSlice));
                 if ~exist(fname,'file') || replot
+
+                    % Get slice to contour
+                    if readSlices
+                        try
+                            switch sliceType
+                                case 'kSlice'
+                                    slice = kSlice(obj.blk,obj.gas,obj.bcs,paths2read{i},slicenums2read(i),time2read(i),obj.casetype,ishere);
+                                case 'jSlice'
+                                    slice = jSlice(obj.blk,obj.gas,paths2read{i},slicenums2read(i),time2read(i),obj.casetype,ishere);
+                            end
+                        catch
+                            continue
+                        end
+                    else 
+                        slice = slices(i);
+                    end
+
                     if strcmp(prop,'overlay')
-                        slice2schlierenVortOverlay(slices(i), obj.blk, fullfile(imgfolder,sprintf('img_%03d.png',slices(i).nSlice)), lims, area, aspect);
+                        slice2schlierenVortOverlay(slice, obj.blk, fullfile(imgfolder,sprintf('img_%03d.png',slice.nSlice)), lims, area, aspect);
                     else
-                        switch class(slices(i))
+                        switch class(slice)
                             case 'kSlice'
-                                slice2kPlot(slices(i), obj.blk, prop, fullfile(imgfolder,sprintf('img_%03d.png',slices(i).nSlice)), lims, label, area, aspect);
+                                slice2kPlot(slice, obj.blk, prop, fullfile(imgfolder,sprintf('img_%03d.png',slice.nSlice)), lims, label, area, aspect);
                             case 'jSlice'
-		                        slice2jPlot(slices(i), prop, fullfile(imgfolder, sprintf('img_%03d.png',slices(i).nSlice)), lims, label);
+		                        slice2jPlot(slice, prop, fullfile(imgfolder, sprintf('img_%03d.png',slice.nSlice)), lims, label);
                         end
                     end
+
+                    if readSlices
+                        clear slice
+                    end
+                    
                 end
                 copyfile(fname, tempfolder);
             end
@@ -2096,18 +2605,18 @@
 
         end
 
-        function dim = generateInflowTurb(obj, write)
+        function [dim] = generateInflowTurb(obj, Tu, L, write)
             
             if nargin < 2
                 write=true;
             end
 
-            L = 1.0;            % Lengthscale of largest eddies
+            %L = 1.0;            % Lengthscale of largest eddies
             M = 10000;          % Number of Fourier modes
-            Tu = 0.005;         % Turbulence intensity
+            %Tu = 0.005;         % Turbulence intensity
 
             [xb,yb,zb,dx] = writeTurbGrid(obj.blk.inlet_blocks{1}, obj.solver.span, obj.casepath);
-            [~, lMax, minL, ~] = gridSpac(xb,yb,zb);
+            [lMin, lMax, minL, ~] = gridSpac(xb,yb,zb);
             [ni,nj,nk] = size(xb);
             dim = [ni,nj,nk];
 
@@ -2133,9 +2642,112 @@
                 system('turbInGrid > out &')
                 cd(dir)
             end
+
+            vIn = obj.bcs.vin;
+            eps =  (Tu*vIn)^3/L*sqrt(3/2)^3;
+            nu = nunow;
+            tol = 0.00001;
+            wrap = @(ke,keta,dltk,b,tol) estInt(ke,keta,dltk,b,tol); 
+
+            %rms of velocity fluctuations
+            u = Tu*vIn;
+            %ch'ic length scale-based Re
+            %ReL = u*Lc/nui;
+            ReL = u*L/(nu)
+            %Wave length related to location of energy maximum (at sqrt(12/5)ke)
+            %relationship to int. length scale fixed for isotropic turbulence
+            keSt = 0.746834/(L*0.09);
+            %Kolmogorov wave length (= eps^1/4/nu^3/4 = u^(3/4)/(nu^(3/4)*Lint^(1/4))
+            %keta = ReL.^(3/4)/(Lint^(1/4)*Lc^(3/4));
+            keta = eps^(1/4)/nu^(3/4);
+        
+            %Grid spacing
+            %dg = maxL/(N-1)
+            %minimum resolved wave number (i.e. longest waves - want to take minL
+            %here rather than maxL, so that we won't end up with waves too large
+            %for one direction.
+            kmi = 2*pi/minL;
+            %maximum resolved wave number
+            kmx = pi/lMin;  
+        
+        
+            mn = linspace(1,M,M);  
+            km = zeros(M,1);
+        
+            ce = 2*nu;
+            cu = 2/3;
+            b = ce*u^2/(eps*cu);
+        
+            %set wavenumber as centre of bin
+            for m = 1:M    
+                km(m) = kmi+(kmx-kmi)/M*(mn(m)-0.5);
+            end
+        
+            %width of wave-number bins
+            dltk = (max(km)-min(km))/(M-1);
+        
+            try
+                %Find ke..
+                fun = @(x) wrap(x,keta,dltk,b,tol);    % function of x alone
+            catch
+                
+            end
+            ke = fzero(fun,[1, keSt]);
+            
+            disp(['Calculated k_e as ', num2str(ke)])
+            [dsint, kint, alpha] = calcAlpha(ke,dltk,keta,nu,u,tol);
+        
+            
+            disp(['Calculated alpha as ', num2str(alpha)])
+        
+            Ek = zeros(M,1);
+        
+            for m = 1:M
+                bfk = km(m)/ke;
+                expc = exp(-2*(km(m)/keta)^2);
+                Ek(m) = alpha*u^2/ke*bfk^4/(1+bfk^2)^(17/6)*expc;
+            end
+        
+            E = Ek/u^2*keta;
+            k = km/keta;
+            
+            disp(1/u^2*keta)
+            disp(keta)
+            
+            figure()
+            
+            loglog(k,E,'LineWidth',1.5);
+            [~,minDex] = min(abs(k-1.5));
+            xLimits = [min(k) 1.5];                   %# Limits for the x axis
+            yLimits = [E(minDex) max(E)*1.1 ];                      %# Limits for the y axis
+            %logScale = diff(yLimits)/diff(xLimits);  %# Scale between the x and y ranges
+            %powerScale = diff(log10(yLimits))/...    %# Scale between the x and y powers
+            %             diff(log10(xLimits));
+            %set(gca,'Xlim',xLimits,'YLim',yLimits,...              %# Set the limits and the
+            %        'DataAspectRatio',[1 logScale/powerScale 1]);  %#   data aspect ratio
+            set(gca,'Xlim',xLimits,'YLim',yLimits);    
+            grid on
+            hold on
+            i1 = find(E>=0.8*max(E),1,'last');
+            i2 = find(E<=0.05*max(E),1,'first');
+            Bp = polyfit(log10(k(i1:i2)), log10(E(i1:i2)), 1);
+            Yp = polyval(Bp,log10(k(i1:i2)));
+            Yp=10.^Yp;
+            loglog(k(i1:i2),Yp,'-r');
+            
+            %find approximate gradient in 
+            m = (log10(Yp(end))-log10(Yp(1)))/(log10(k(i2))-log10(k(i1)))
+            
+            keta
+            xlabel('$\kappa/\kappa_\eta$','interpreter','latex','FontSize',15)
+            ylabel('$E(\kappa)\kappa_\eta/u''^2$','interpreter','latex','FontSize',15)
             
             fprintf('Set ilength to %d\n',ni);
             fprintf('Set lturb to: %9.7f\n', dx);
+
+            obj.bcs.ilength = ni;
+            obj.bcs.lturb = dx;
+
 
         end
 
@@ -2143,12 +2755,36 @@
             gridPath = py.str(fullfile(obj.casepath,'turb-gen','turb-grid.dat'));
             namePath = py.str(fullfile(obj.casepath,'turb-gen','inflow_turb_gridTurb.dat'));
             DIM = py.tuple(int32(dim));
+            np = py.importlib.import_module('numpy');
             turb_postproc = py.importlib.import_module('turb_postproc');
             U = turb_postproc.conditionAxSlc(namePath,gridPath,DIM,true,false,false);
             u = U(1); v = U(2); w = U(3);
             namePath = py.str(fullfile(obj.casepath,'turb-gen','inflow_turb.dat'));
+
+            u = double(np.ascontiguousarray(u{1}));
+            v = double(np.ascontiguousarray(v{1}));
+            w = double(np.ascontiguousarray(w{1}));
+
             turb_postproc.write3DNSorder(namePath,u,v,w)
+
         end
+
+        function [u,v,w] = readTurb3DNSOrder(obj,dim)
+            gridPath = py.str(fullfile(obj.casepath,'turb-gen','turb-grid.dat'));
+            namePath = py.str(fullfile(obj.casepath,'turb-gen','inflow_turb.dat'));
+            DIM = py.tuple(int32(dim));
+            np = py.importlib.import_module('numpy');
+            turb_postproc = py.importlib.import_module('turb_postproc');
+
+
+            flo = turb_postproc.read3DNSorder(namePath,DIM);
+            u = double(np.ascontiguousarray(flo{1}));
+            v = double(np.ascontiguousarray(flo{2}));
+            w = double(np.ascontiguousarray(flo{3}));
+
+        end
+
+
 
         function write_HYDRA_mesh(obj)
             path = fullfile(obj.casepath,[obj.casename '_HYDRA.xyz']);
@@ -2197,7 +2833,140 @@
             write_plot3d_2d(obj.blk, path);
         end
 
-        
+        function mean = inst2ave(obj, sliceNums)
+            mean = meanSlice([], obj.blk, obj.gas, obj.bcs);
+
+            for ib=1:obj.NB
+                ni = obj.blk.blockdims(ib,1);
+                nj = obj.blk.blockdims(ib,2);
+
+                ro{ib} = zeros(ni,nj);
+                ru{ib} = zeros(ni,nj);
+                rv{ib} = zeros(ni,nj);
+                rw{ib} = zeros(ni,nj);
+                Et{ib} = zeros(ni,nj);
+
+                u{ib} = zeros(ni, nj);
+                v{ib} = zeros(ni, nj);
+                w{ib} = zeros(ni, nj);
+
+                ro2{ib} = zeros(ni,nj);
+                rou2{ib} = zeros(ni,nj);
+                rov2{ib} = zeros(ni,nj);
+                row2{ib} = zeros(ni,nj);
+
+                rouv{ib} = zeros(ni,nj);
+                rouw{ib} = zeros(ni,nj);
+                rovw{ib} = zeros(ni,nj);
+
+                pbar{ib} = zeros(ni,nj);
+                Tbar{ib} = zeros(ni,nj);
+
+                roUddUdd{ib} = zeros(ni, nj);
+                roVddVdd{ib} = zeros(ni, nj);
+                roWddWdd{ib} = zeros(ni, nj);
+
+                roUddUdd{ib} = zeros(ni, nj);
+                roUddWdd{ib} = zeros(ni, nj);
+                roVddWdd{ib} = zeros(ni, nj);
+
+                Pr{ib} = zeros(ni, nj);
+                k{ib} = zeros(ni, nj);
+
+            end
+            
+            [paths2read, slicenums2read, time2read, ishere] = obj.getSlicePaths(obj.run);
+            [~, inds] = ismember(slicenums2read, sliceNums);
+            inds = inds(inds>0);
+            nSlices = length(inds);
+
+            for i = 1:nSlices
+
+                ind = inds(i);
+
+                fprintf('Reading slice %d/%d\n', [i, nSlices])
+                slice = kSlice(obj.blk, obj.gas, obj.bcs, paths2read{ind}, slicenums2read(ind), time2read(ind), obj.casetype, ishere);
+                
+                for ib = 1:obj.NB
+                    ro{ib} = ro{ib} + slice.ro{ib} / nSlices;
+                    ru{ib} = ru{ib} + slice.ro{ib} .* slice.u{ib} / nSlices;
+                    rv{ib} = rv{ib} + slice.ro{ib} .* slice.v{ib} / nSlices;
+                    rw{ib} = rw{ib} + slice.ro{ib} .* slice.w{ib} / nSlices;
+                    Et{ib} = Et{ib} + slice.Et{ib} / nSlices;
+
+                    ro2{ib} = ro2{ib} + slice.ro{ib}.^2 / nSlices;
+                    rou2{ib} = rou2{ib} + slice.ro{ib} .* slice.u{ib}.^2 / nSlices;
+                    rov2{ib} = rov2{ib} + slice.ro{ib} .* slice.v{ib}.^2 / nSlices;
+                    row2{ib} = row2{ib} + slice.ro{ib} .* slice.w{ib}.^2 / nSlices;
+
+                    rouv{ib} = rouv{ib} + slice.ro{ib} .* slice.u{ib} .* slice.v{ib} / nSlices;
+                    rouw{ib} = rouw{ib} + slice.ro{ib} .* slice.u{ib} .* slice.w{ib} / nSlices;
+                    rovw{ib} = rovw{ib} + slice.ro{ib} .* slice.v{ib} .* slice.w{ib} / nSlices;
+
+                    
+                end
+
+                clear slice
+
+            end
+            
+            for ib = 1:obj.NB
+                u{ib} = ru{ib} ./ ro{ib};
+                v{ib} = rv{ib} ./ ro{ib};
+                w{ib} = rw{ib} ./ ro{ib};
+                pbar{ib} = (Et{ib} - 0.5*(rou2{ib} + rov2{ib} + row2{ib}))*(obj.gas.gam-1);
+                Tbar{ib} = (pbar{ib}.*obj.gas.gam)./(obj.gas.cp*(obj.gas.gam-1)*ro{ib});
+
+
+                [DUDX,DUDY] = gradHO(obj.blk.x{ib},obj.blk.y{ib},u{ib});
+                [DVDX,DVDY] = gradHO(obj.blk.x{ib},obj.blk.y{ib},v{ib});
+
+                UdUd = rou2{ib}./ro{ib} - u{ib}.*u{ib};
+                VdVd = rov2{ib}./ro{ib} - v{ib}.*v{ib};
+                WdWd = row2{ib}./ro{ib} - w{ib}.*w{ib};
+
+                UdVd = rouv{ib}./ro{ib} - u{ib}.*v{ib};
+                UdWd = rouw{ib}./ro{ib} - u{ib}.*w{ib};
+                VdWd = rovw{ib}./ro{ib} - v{ib}.*w{ib};
+
+                roUddUdd{ib} = rou2{ib} - ro{ib}.*u{ib}.*u{ib};
+                roVddVdd{ib} = rov2{ib} - ro{ib}.*v{ib}.*v{ib};
+                roWddWdd{ib} = row2{ib} - ro{ib}.*w{ib}.*w{ib};
+
+                roUddVdd{ib} = rouv{ib} - ro{ib}.*u{ib}.*v{ib};
+                roUddWdd{ib} = rouw{ib} - ro{ib}.*u{ib}.*w{ib};
+                roVddWdd{ib} = rovw{ib} - ro{ib}.*v{ib}.*w{ib};
+
+                Pr{ib} = -ro{ib}.*(UdUd.*DUDX + UdVd.*(DUDY+DVDX) + VdVd.*DVDY);
+                k{ib} = 0.5*(UdUd + VdVd + WdWd);
+            end
+
+
+            mean.ro = ro;
+            mean.u = u;
+            mean.v = v;
+            mean.w = w;
+            mean.Et = Et;
+    
+            mean.pbar = pbar;
+            mean.Tbar = Tbar;
+    
+            mean.roUddUdd = roUddUdd;
+            mean.roVddVdd = roVddVdd;
+            mean.roWddWdd = roWddWdd;
+    
+            mean.roUddVdd = roUddVdd;
+            mean.roUddWdd = roUddWdd;
+            mean.roVddWdd = roVddWdd;
+    
+            mean.Pr = Pr;
+            mean.k = k;
+
+            obj.meanFlow = mean;
+
+        end
+
+
 
         function update_Min(obj, M)
             obj.bcs.vin = Vel_M(M, obj.bcs.Toin, obj.gas.cp, obj.gas.gam);

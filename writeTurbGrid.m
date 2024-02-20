@@ -32,11 +32,17 @@ function [xb,yb,zb,dx] = writeTurbGrid(inblocks, span, casedir, L)
 
     end
 
-    NJ = NJ-2;
+    NJ = NJ-length(inblocks)+1;
 
-    xb = cat(2,grid{2}.x,grid{1}.x(:,2:end,:),grid{3}.x(:,2:end,:));
-    yb = cat(2,grid{2}.y,grid{1}.y(:,2:end,:),grid{3}.y(:,2:end,:));
-    zb = cat(2,grid{2}.z,grid{1}.z(:,2:end,:),grid{3}.z(:,2:end,:));
+    xb = grid{inblocks(1)}.x;
+    yb = grid{inblocks(1)}.y;
+    zb = grid{inblocks(1)}.z;
+
+    for ib = 2:length(inblocks)
+        xb = cat(2,xb,grid{inblocks(ib)}.x(:,2:end,:));
+        yb = cat(2,yb,grid{inblocks(ib)}.y(:,2:end,:));
+        zb = cat(2,zb,grid{inblocks(ib)}.z(:,2:end,:));
+    end
     
     
     figure()

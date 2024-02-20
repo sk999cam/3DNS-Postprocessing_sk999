@@ -223,7 +223,7 @@ def checkTu(namePath,cubeShp,vref):
 
     from scipy.interpolate import LinearNDInterpolator
     
-    [uc,vc,wc] = read3DNSorder(namePath,[cubeShp,cubeShp,cubeShp])
+    [uc,vc,wc] = read3DNSorder(namePath,cubeShp)
     
     Tu_u = np.sqrt(np.mean((uc**2).flatten()))/vref
     Tu_v = np.sqrt(np.mean((vc**2).flatten()))/vref
@@ -273,6 +273,7 @@ def read3DNSorder(namePath,floShp):
     u = C[:,:,:,0]
     v = C[:,:,:,1]
     w = C[:,:,:,2]
+
     u = np.swapaxes(u,1,2)
     v = np.swapaxes(v,1,2)
     w = np.swapaxes(w,1,2)
@@ -350,6 +351,16 @@ def testRoundTrip_P2(cubeShp,outPath):
     #output_file.close()
     
     return
-    
-    
 
+if __name__ == '__main__':
+    print('Here')
+    namePath = '/Data/ojj23/dns-work/cascades/M0-95_AVDR1_g72M/turb-gen/inflow_turb.dat'
+    gridPath = '/Data/ojj23/dns-work/cascades/M0-95_AVDR1_g72M/turb-gen/turb-grid.dat'
+    DIM = [91,671,96]
+    # U = conditionAxSlc(namePath.replace('.dat', '_gridTurb.dat'), gridPath, DIM, True, False, False)
+    # u = U[0]
+    # v = U[1]
+    # w = U[2]
+    # write3DNSorder(namePath,u,v,w)
+    # [u_read,v_read,w_read] = read3DNSorder(namePath, DIM)
+    checkTu(namePath, DIM, 273)

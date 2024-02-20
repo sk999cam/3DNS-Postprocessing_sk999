@@ -461,7 +461,7 @@ classdef volFlow < handle
         end
 
         function writeFlow(obj, path)
-            if nargi-n < 2
+            if nargin < 2
                 path = obj.flowpath;
             end
             for nb = 1:obj.NB

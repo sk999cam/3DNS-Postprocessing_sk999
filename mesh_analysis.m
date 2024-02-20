@@ -1,4 +1,6 @@
-function mesh_analysis(blk, skip)
+function mesh_analysis(blk, skip, Re)
+
+if nargin < 3, Re=100e3; end
 
 if nargin<2, skip=8; end
 
@@ -136,6 +138,8 @@ for i=1:NB
     
     dsi = sqrt(dxi.^2+dyi.^2);
     dsj = sqrt(dxj.^2+dyj.^2);
+
+    min_spacing(i) = min(min(dsi, dsj),[],'all');
     
     aspect_ratio{i} = max(dsi./dsj, dsj./dsi);
     pcolor(blk.x{i},blk.y{i},aspect_ratio{i})
@@ -162,17 +166,17 @@ cb = colorbar;
 x_grid = [];
 y_grid = [];
 if NB == 12
-    o_blocks = [4 6 9 5];
-    flip = [0, 0, 1, 1];
+    oblocks = [4 6 9 5];
+    oblocks_flip = [0, 0, 1, 1];
 elseif NB == 9
-    o_blocks = [3 5 7 4];
-    flip = [0, 0, 1, 1];
+    oblocks = [3 5 7 4];
+    oblocks_flip = [0, 0, 1, 1];
 end
     
-for i=1:length(o_blocks)
-    x_tmp = blk.x{o_blocks(i)}(:,end:-1:1);
-    y_tmp = blk.y{o_blocks(i)}(:,end:-1:1);
-    if flip(i) == 1
+for i=1:length(oblocks)
+    x_tmp = blk.x{oblocks(i)}(:,end:-1:1);
+    y_tmp = blk.y{oblocks(i)}(:,end:-1:1);
+    if oblocks_flip(i) == 1
         x_tmp = x_tmp(end:-1:1,:);
         y_tmp = y_tmp(end:-1:1,:);
     end
@@ -233,7 +237,88 @@ set(gca,'FontSize',16)
 
 %%
 
-nij_pts
-Nprocs = nk*sum(prod(procdims,2))/npp
-Npts = nij_pts*nk
+
+xo = [];
+yo = [];
+io = [];
+jo = [];
+blko = [];
+for i=1:length(oblocks)
+    nb = oblocks(i);
+    ni = size(blk.x{nb},1);
+    nj = size(blk.x{nb},2);
+    xtmp = blk.x{nb}(:,:);
+    ytmp = blk.y{nb}(:,:);
+    itmp = 1:ni;
+    itmp = repmat(itmp',[1 nj]);
+    jtmp = 1:nj;
+    jtmp = repmat(flip(jtmp), [ni 1]);
+    blktmp = nb*ones(ni,nj);
+    xtmp = flip(xtmp,2);
+    ytmp = flip(ytmp,2);
+    if oblocks_flip(i) == 1
+        xtmp = flip(xtmp);
+        ytmp = flip(ytmp);
+        itmp = flip(itmp);
+    end
+    if size(xo,1) == 0
+        xo = xtmp; yo = ytmp;
+        io = itmp; jo = jtmp;
+        blko = blktmp;
+    else
+        xo = [xo; xtmp(2:end,:)];
+        yo = [yo; ytmp(2:end,:)];
+        io = [io; itmp(2:end,:)];
+        jo = [jo; jtmp(2:end,:)];
+        blko = [blko; blktmp(2:end,:)];
+    end
+    
+    if xo(1,1) == xo(end,1)
+        xo = xo(1:end-1,:);
+        yo = yo(1:end-1,:);
+        io = io(1:end-1,:);
+        jo = jo(1:end-1,:);
+        blko = blko(1:end-1,:);
+    end
+
+end
+xsurf = xo(:,1);
+[~, iLE] = min(xsurf);
+[~, iTE] = max(xsurf);
+
+ssurf = zeros(1,iTE-iLE+1);
+for i = iLE:iTE
+    if i>iLE
+        dx = xo(i,1) - xo(i-1,1);
+        dy = yo(i,1) - yo(i-1,1);
+        ds = sqrt(dx^2 + dy^2);
+        ssurf(i+1-iLE) = ssurf(i-iLE) + ds;
+    end
+end
+c = sqrt((xo(iLE,1)-xo(iTE,1))^2 + (yo(iLE,1)-yo(iTE,1))^2);
+yp1 = Re2offset(Re,1,c);
+
+dx = xo(2:end,1) - xo(1:end-1,1);
+dy = yo(2:end,1) - yo(1:end-1,1);
+ds = sqrt(dx.^2 + dy.^2);
+ds = ds(iLE:iTE);
+
+dx = xo(:,2) - xo(:,1);
+dy = yo(:,2) - yo(:,1);
+dn = sqrt(dx.^2 + dy.^2);
+dn = dn(iLE:iTE);
+xnow = xo(iLE:iTE);
+
+figure()
+yyaxis left
+plot(xnow, dn/yp1);
+yyaxis right
+plot(xnow, ds/yp1);
+
+%%
+
+fprintf('%d points in i-j plane\n',nij_pts)
+fprintf('%d processors\n', nk*sum(prod(procdims,2))/npp)
+fprintf('Total points: %d\n', nij_pts*nk);
+fprintf('Min spacing: %6.4e\n', min(min_spacing));
 end

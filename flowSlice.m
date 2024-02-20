@@ -27,9 +27,6 @@ classdef flowSlice < handle
 %         vortZ;          % Z vorticity
     end
 
-    properties (Abstract)
-    end
-
     properties (Dependent = true)
         T;             % Temperature
         p;             % p stat
@@ -45,14 +42,13 @@ classdef flowSlice < handle
         T0;
         schlieren;      % |grad(ro)|/ro
         cellSize;
-        St              % Traceless strain
+        St;
+        St_an              % Traceless strain
         S_an_mag;       % Magnitude of anisotropic componant of strain tensor
         local_cfl;
         wallDist;       % Distance from wall
-    end
-
-    methods (Abstract)
-        plot
+        flowAng;
+        muSij2;         % Dissipation due to mean strain
     end
 
     methods
@@ -108,6 +104,7 @@ classdef flowSlice < handle
         function value = get.StR(obj)
             value = obj.get_StR;
         end
+        
 
         function obj = set.StR(obj, value)
             obj.set_StR(value);
@@ -128,12 +125,6 @@ classdef flowSlice < handle
         function set_ros(obj,value)
         end
 
-        function value = get_StR(obj)
-            value = cell(1,obj.NB);
-            for nb =1:obj.NB
-                value{nb} = strain_rate_magnitude(obj.blk.x{nb}, obj.blk.y{nb}, obj.u{nb}, obj.v{nb});
-            end
-        end
 
         function value = get_mut(obj)
             disp('Overload get_mut in relevant subclass')
@@ -211,7 +202,15 @@ classdef flowSlice < handle
             for nb = 1:obj.NB
                 pnow = obj.p{nb};%(obj.gas.gam - 1)*(obj.Et{nb} - 0.5*(obj.u{nb}.^2 + obj.v{nb}.^2 + obj.w{nb}.^2).*obj.ro{nb});
                 Tnow = pnow./(obj.ro{nb}*obj.gas.rgas);
-                value{nb} = obj.gas.mu_ref*(Tnow/obj.gas.mu_tref).^(3/2) .* (obj.gas.mu_cref + obj.gas.mu_tref)./(obj.gas.mu_cref + Tnow);
+                value{nb} = sutherland_mu(Tnow, obj.gas.mu_ref, obj.gas.mu_cref, obj.gas.mu_tref);%obj.gas.mu_ref*(Tnow/obj.gas.mu_tref).^(3/2) .* (obj.gas.mu_cref + obj.gas.mu_tref)./(obj.gas.mu_cref + Tnow);
+            end
+        end
+
+        function value = get.flowAng(obj)
+            disp('Calculating flow angle')
+            value = cell(1,obj.NB);
+            for nb = 1:obj.NB
+                value{nb} = atan2d(obj.v{ib}./obj.u{ib});
             end
         end
 
@@ -287,9 +286,15 @@ classdef flowSlice < handle
             fprintf(1, '%d MB\n', totSize/1e6);
         end
 
+        function value = get_StR(obj)
+            value = cell(1,obj.NB);
+            for nb =1:obj.NB
+                value{nb} = strain_rate_magnitude(obj.blk.x{nb}, obj.blk.y{nb}, obj.u{nb}, obj.v{nb});
+            end
+        end
         
 
-        function value = get.St(obj)
+        function value = get.St_an(obj)
             for ib = 1:obj.NB
 
                 [DUDX,DUDY] = gradHO(obj.blk.x{ib},obj.blk.y{ib},obj.u{ib});
@@ -309,11 +314,55 @@ classdef flowSlice < handle
             end
         end
 
+        function value = get.St(obj)
+
+            for ib = 1:obj.NB
+
+                [DUDX,DUDY] = gradHO(obj.blk.x{ib},obj.blk.y{ib},obj.u{ib});
+                [DVDX,DVDY] = gradHO(obj.blk.x{ib},obj.blk.y{ib},obj.v{ib});
+
+                %Traceless strain tensor
+                S = zeros(obj.blk.blockdims(ib,1),obj.blk.blockdims(ib,2),3,3);
+                
+                S(:,:,1,1) = DUDX;
+                S(:,:,2,2) = DVDY;
+
+                S(:,:,1,2) = 0.5*(DUDY+DVDX);
+                S(:,:,2,1) = S(:,:,1,2);
+
+                value{ib} = S;
+            end
+
+        end
+
+
         function value = get.S_an_mag(obj)
-            Snow = obj.St;
+            Snow = obj.St_an;
             for ib = 1:obj.NB
                 value{ib} = sqrt(sum(sum(Snow{ib}.*Snow{ib},4),3));
             end
+        end
+
+        function value = get.muSij2(obj)
+
+            for ib = 1:obj.NB
+
+                [DUDX,DUDY] = gradHO(obj.blk.x{ib},obj.blk.y{ib},obj.u{ib});
+                [DVDX,DVDY] = gradHO(obj.blk.x{ib},obj.blk.y{ib},obj.v{ib});
+
+                % Strain tensor
+                S = zeros(obj.blk.blockdims(ib,1),obj.blk.blockdims(ib,2),3,3);
+                
+                S(:,:,1,1) = DUDX;
+                S(:,:,2,2) = DVDY;
+
+                S(:,:,1,2) = 0.5*(DUDY+DVDX);
+                S(:,:,2,1) = S(:,:,1,2);
+
+                value{ib} = obj.mu{ib}.*sum(sum(S.*S,4),3);
+            end
+
+
         end
 
         function value = get.local_cfl(obj)
@@ -348,6 +397,17 @@ classdef flowSlice < handle
         function value = get.wallDist(obj)
             value = obj.blk.walldist;
         end
-            
+
+        function kPlot(obj, prop)
+            q = obj.(prop);
+            hold on
+            ax = gca;
+            for i=1:obj.NB
+                s = pcolor(ax, obj.blk.x{i}, obj.blk.y{i}, q{i});
+            end
+            shading('interp');
+            axis equal
+        end
+
     end
 end

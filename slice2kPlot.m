@@ -1,12 +1,23 @@
 function slice2kPlot(slice, blk, prop, fpath, lims, label, area, aspect)
+
+    repeats = 1;
+    if isfield(blk, "n_pitchwise_repeats")
+        repeats = blk.n_pitchwise_repeats;
+    end
     h = figure('Visible','off');
     ax = axes(h);
   
     q = slice.(prop);
 
     hold on
+    offset = 0;
+    if repeats > 2
+        offset = -blk.pitch;
+    end
+    for ir = 1:repeats
     for i=1:slice.NB
-        pcolor(ax, blk.x{i}, blk.y{i}, q{i});
+        pcolor(ax, blk.x{i}, blk.y{i}+offset+(ir-1)*blk.pitch, q{i});
+    end
     end
     shading('interp')
     axis equal
@@ -25,4 +36,7 @@ function slice2kPlot(slice, blk, prop, fpath, lims, label, area, aspect)
     end
     set(ax,'FontSize',12);
     exportgraphics(h, fpath, 'Resolution', 600);
+    
+    close(h)
+    clear
 end

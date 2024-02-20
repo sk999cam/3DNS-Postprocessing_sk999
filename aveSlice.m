@@ -13,6 +13,7 @@ classdef aveSlice < kCut
         use_unsflo = false;
         blEdgeMode;
         iSmoothBL =  false;
+        nSmooth;
     end
 
     properties (Dependent = true)
@@ -23,6 +24,7 @@ classdef aveSlice < kCut
         thetaStar;      % K.E. Thickness
         H;              % Shape factor
         H_k;            % Kinematic shape factor
+        H_k_Whitfield;  % Whitfield correlation for Hk for adiabatic flows
         H_ke;           % K.E. shape factor = thetaStar/theta
         H_rho;          % Density shape factor H** = delta**/theta
         H1;             
@@ -40,23 +42,30 @@ classdef aveSlice < kCut
         Res;            % Surface distance Reynolds No
         blPr;           % Componant of cd due to production of tke
         blPr_eq;        % Coles' equilibrium prodution
-        tau_w;
+        tau_w;          % Wall shear stress
+        u_tau;          % Friction velocity
         dUdy;
         dTdy;
         cf;
         ctau;
+        ctau_max;
         Re_theta;
         iPS;
+        iMaxPr;
+        iEq;
         Re_theta_ps;
         pdyn            % Dynamic pressure, 0.5*rho*V^2
         nu_e            % Boundary layer edge viscosity
-        
+        alpha2;
+        p0out;
+        yplus;
     end
 
     methods
         function obj = aveSlice(blk, gas, bcs)
             obj@kCut(blk, gas, bcs);
             disp('Constructing aveSlice')
+            obj.nSmooth = 1;
         end
 
         function getBCs(obj, inlet_blocks, is)
@@ -165,6 +174,7 @@ classdef aveSlice < kCut
             pnow = obj.oGridProp('p');
             value = pnow(:,1);
         end
+       
 
         function value = BLedgeInd(obj, mode)
             if nargin < 2 || isempty(mode)
@@ -239,8 +249,8 @@ classdef aveSlice < kCut
 
         function value = get.iPS(obj)
             x = obj.xSurf;
-            M = smooth(obj.Msurf);
-            pr = smooth(obj.blPr);
+            M = smooth(obj.Msurf, obj.nSmooth);
+            pr = smooth(obj.blPr, obj.nSmooth);
 
             i = length(x);
             while M(i) < 1.02
@@ -250,6 +260,19 @@ classdef aveSlice < kCut
             while pr(i) < prLast
                 prLast = pr(i);
                 i = i-1;
+            end
+            value = i;
+        end
+
+        function value = get.iMaxPr(obj)
+            [~, value] = max(obj.blPr);
+        end
+
+        function value = get.iEq(obj)
+            i = 20;
+            pr = smooth(obj.blPr, obj.nSmooth);
+            while pr(i) > pr(i-1)
+                i = i+1;
             end
             value = i;
         end
@@ -303,6 +326,7 @@ classdef aveSlice < kCut
                         value(i) = obj.yBL(i,inds(i));
                     end
             end
+            value = smooth(value,obj.nSmooth);
             
         end
 
@@ -317,7 +341,8 @@ classdef aveSlice < kCut
                 tang = [-nnow(2,i); nnow(1,i)];
                 for j=1:size(obj.yBL,2)
                     velnow = [unow(i,j); vnow(i,j)];
-                    value(i,j) = -dot(tang, velnow - nnow(:,i)*dot(nnow(:,i),velnow));
+                    % value(i,j) = -dot(tang, velnow - nnow(:,i)*dot(nnow(:,i),velnow));
+                    value(i,j) = norm(velnow - dot(velnow,nnow(:,i)));
                 end
             end
         end
@@ -332,6 +357,7 @@ classdef aveSlice < kCut
                 ys = obj.yBL(i,1:inds(i));
                 value(i) = trapz(ys, integrand);
             end
+            value = smooth(value,obj.nSmooth);
         end
 
         function value = get.delStar_k(obj)
@@ -343,6 +369,7 @@ classdef aveSlice < kCut
                 ys = obj.yBL(i,1:inds(i));
                 value(i) = trapz(ys, integrand);
             end
+            value = smooth(value,obj.nSmooth);
         end
 
         function value = get.delRho(obj)
@@ -358,6 +385,7 @@ classdef aveSlice < kCut
                 ys = obj.yBL(i,1:inds(i));
                 value(i) = trapz(ys, integrand);
             end
+            value = smooth(value,obj.nSmooth);
         end
 
         function value = get.theta(obj)
@@ -373,6 +401,7 @@ classdef aveSlice < kCut
                 ys = obj.yBL(i,1:inds(i));
                 value(i) = trapz(ys, integrand);
             end
+            value = smooth(value,obj.nSmooth);
         end
 
         function value = get.theta_k(obj)
@@ -385,6 +414,7 @@ classdef aveSlice < kCut
                 ys = obj.yBL(i,1:inds(i));
                 value(i) = trapz(ys, integrand);
             end
+            value = smooth(value,obj.nSmooth);
         end
 
         function value = get.thetaStar(obj)
@@ -400,6 +430,7 @@ classdef aveSlice < kCut
                 ys = obj.yBL(i,1:inds(i));
                 value(i) = trapz(ys, integrand);
             end
+            value = smooth(value,obj.nSmooth);
         end
 
         function value = get.H(obj)
@@ -408,6 +439,12 @@ classdef aveSlice < kCut
 
         function value = get.H_k(obj)
             value = obj.delStar_k./obj.theta_k;
+        end
+
+        function value = get.H_k_Whitfield(obj)
+            H = obj.H;
+            Me = obj.Msurf;
+            value = (H-0.290*Me.^2)./(1+0.113*Me.^2);
         end
 
         function value = get.H_ke(obj)
@@ -463,30 +500,59 @@ classdef aveSlice < kCut
             end
         end
 
-        function plt = blDevPlot(obj, prop, ax, lims, xrange, fmt)
-            if nargin < 3 || isempty(ax)
-                ax = gca;
-            end
-            q = obj.(prop);
+        function plt = blDevPlot(obj, prop, varargin) % ax, lims, xrange, fmt)
+
             x0 = min(obj.xSurf);
             x1 = max(obj.xSurf);
 
-            if nargin > 5 && ~isempty(fmt)
-                if isempty(xrange)
-                    plt = plot(ax,obj.xSurf,q,fmt);
-                else
-                    plt = plot(ax,obj.xSurf(obj.xSurf>xrange(1)&obj.xSurf<xrange(2)),q(obj.xSurf>xrange(1)&obj.xSurf<xrange(2)),fmt);
-                end
-            elseif nargin>4 && ~isempty(xrange)
-                plt = plot(ax,obj.xSurf(obj.xSurf>xrange(1)&obj.xSurf<xrange(2)),q(obj.xSurf>xrange(1)&obj.xSurf<xrange(2)));
-            else
-                plt = plot(ax,obj.xSurf,q);
-            end
+            defaultAx = gca;
+            defaultLims = 'auto';
+            defaultLineWidth = 1.5;
+            defaultFmtString = '';
+            defaultXRange = [x0-1 x1+1];
+
+            p = inputParser;
+
+%             addRequired(p, 'prop');
+            addParameter(p, 'ax', defaultAx);
+            addParameter(p, 'lims', defaultLims);
+            addParameter(p, 'xrange', defaultXRange);
+            addParameter(p, 'fmt', defaultFmtString);
+            addParameter(p, 'LineWidth', defaultLineWidth);
+
+            parse(p, varargin{:})
+
+%             if nargin < 3 || isempty(ax)
+%                 ax = gca;
+%             end
+
+            ax = p.Results.ax;
+            q = obj.(prop);
+
+            plt = plot(ax, obj.xSurf(obj.xSurf>p.Results.xrange(1)&obj.xSurf<p.Results.xrange(2)), ...    % x vals withhin x range
+                q(obj.xSurf>p.Results.xrange(1)&obj.xSurf<p.Results.xrange(2)), ...                       % corresponding y vals
+                p.Results.fmt, ...                                                                      % Set format string
+                'LineWidth', p.Results.LineWidth);                                                       % Set line width
+
+
             xlim([x0 x1])
-            if nargin > 3 && ~isempty(lims)
-                ylim(lims);
-            end
-            set(plt,'LineWidth',1.5)
+            ylim(p.Results.lims)                                                                        % Set y lims
+
+%             if nargin > 5 && ~isempty(fmt)
+%                 if isempty(xrange)
+%                     plt = plot(ax,obj.xSurf,q,fmt);
+%                 else
+%                     plt = plot(ax,obj.xSurf(obj.xSurf>xrange(1)&obj.xSurf<xrange(2)),q(obj.xSurf>xrange(1)&obj.xSurf<xrange(2)),fmt);
+%                 end
+%             elseif nargin>4 && ~isempty(xrange)
+%                 plt = plot(ax,obj.xSurf(obj.xSurf>xrange(1)&obj.xSurf<xrange(2)),q(obj.xSurf>xrange(1)&obj.xSurf<xrange(2)));
+%             else
+%                 plt = plot(ax,obj.xSurf,q);
+%             end
+%             if nargin > 3 && ~isempty(lims)
+%                 ylim(lims);
+%             end
+%             set(plt,'LineWidth',1.5)
             disp('')
         end
 
@@ -501,35 +567,125 @@ classdef aveSlice < kCut
             plot(ax, q, obj.yBL(i,:))
         end
 
-        function [locus_line, eq_line] = plot_H_Pr_locus(obj, ax, ploteq, xrange, fmt, lineColour)
-            if nargin < 2 || isempty(ax)
-                ax = gca;
+        function [plt] = plot_H_Pr_locus(obj, varargin) % ax, ploteq, xrange, fmt, lineColour)
+
+
+            x0 = min(obj.xSurf);
+            x1 = max(obj.xSurf);
+
+            defaultAx = gca;
+            defaultPlotEq = false;
+            defaultXRange = [x0-1 x1+1];
+            defaultFmtString = '';
+            defaultLineWidth = 1.5;
+            defaultLineColor = '';
+
+            p = inputParser;
+
+%             addRequired(p, 'prop');
+            addParameter(p, 'ax', defaultAx);
+            addParameter(p, 'ploteq', false)
+            addParameter(p, 'xrange', defaultXRange);
+            addParameter(p, 'fmt', defaultFmtString);
+            addParameter(p, 'LineWidth', defaultLineWidth);
+            addParameter(p, 'LineColor', '');
+
+            parse(p, varargin{:})
+
+            varplotargs = {};
+            if p.Results.LineColor ~= ''
+                varplotargs = [varplotargs {"Color" p.Results.LineColor}];
             end
 
-            H = obj.H_k;
-            pr = obj.blPr;
-            if nargin>3 && ~isempty(xrange)
-                H = H(obj.xSurf>xrange(1)&obj.xSurf<xrange(2));
-                pr = pr(obj.xSurf>xrange(1)&obj.xSurf<xrange(2));
-            end
-            nargin
-            if nargin < 5
-                locus_line = plot(ax,H,pr);
-            elseif nargin == 5 && ~isempty(fmt)
-                locus_line = plot(ax,H,pr,fmt);
-            elseif nargin > 5 && ~isempty(lineColour) && ~isempty(fmt)
-                fprintf('Colour specified\n')
-                locus_line = plot(ax,H,pr,fmt,'Color',lineColour);
-            elseif nargin > 5 && ~isempty(lineColour) && isempty(fmt)
-                locus_line = plot(ax,H,pr,'Color',lineColour);
-            end
+            H = obj.H(obj.xSurf>p.Results.xrange(1)&obj.xSurf<p.Results.xrange(2));
+            pr = obj.blPr(obj.xSurf>p.Results.xrange(1)&obj.xSurf<p.Results.xrange(2));
+
+%             if nargin < 5
+%                 locus_line = plot(ax,H,pr);
+%             elseif nargin == 5 && ~isempty(fmt)
+%                 locus_line = plot(ax,H,pr,fmt);
+%             elseif nargin > 5 && ~isempty(lineColour) && ~isempty(fmt)
+%                 fprintf('Colour specified\n')
+%                 locus_line = plot(ax,H,pr,fmt,'Color',lineColour);
+%             elseif nargin > 5 && ~isempty(lineColour) && isempty(fmt)
+%                 locus_line = plot(ax,H,pr,'Color',lineColour);
+%             end
+
             
-            if ploteq
+            
+            if p.Results.ploteq
                 xtmp = linspace(1,3,51);% linspace(min(H),max(H),51);
                 ytmp = 0.02456*((xtmp-1)./xtmp).^3;
                 hold on
-                eq_line = plot(xtmp,ytmp,'k:');
-                legend([eq_line],'Equilibrium line','Location','northwest')
+                plt = plot(xtmp,ytmp,'k:',"LineWidth", p.Results.LineWidth);
+%                 legend([eq_line],'Equilibrium line','Location','northwest')
+            else
+                plt = plot(p.Results.ax, H, pr, "LineWidth", p.Results.LineWidth, varplotargs{:});
+            end
+            xlabel('H_{incomp}')
+            ylabel('Pr')
+            set(gca,'FontSize',12)
+            disp('')
+            C = colororder;
+            
+        end
+
+        function [plt] = plot_Hk_Pr_locus(obj, varargin) % ax, ploteq, xrange, fmt, lineColour)
+
+
+            x0 = min(obj.xSurf);
+            x1 = max(obj.xSurf);
+
+            defaultAx = gca;
+            defaultPlotEq = false;
+            defaultXRange = [x0-1 x1+1];
+            defaultFmtString = '';
+            defaultLineWidth = 1.5;
+            defaultLineColor = '';
+
+            p = inputParser;
+
+%             addRequired(p, 'prop');
+            addParameter(p, 'ax', defaultAx);
+            addParameter(p, 'ploteq', false)
+            addParameter(p, 'xrange', defaultXRange);
+            addParameter(p, 'fmt', defaultFmtString);
+            addParameter(p, 'LineWidth', defaultLineWidth);
+            addParameter(p, 'LineColor', '');
+
+            parse(p, varargin{:})
+
+            fmt = p.Results.fmt;
+
+%             varplotargs = {};
+%             if p.Results.LineColor ~= ''
+%                 varplotargs = [varplotargs {"Color" p.Results.LineColor}];
+%             end
+
+            H = obj.H_k(obj.xSurf>p.Results.xrange(1)&obj.xSurf<p.Results.xrange(2));
+            pr = obj.blPr(obj.xSurf>p.Results.xrange(1)&obj.xSurf<p.Results.xrange(2));
+
+%             if nargin < 5
+%                 locus_line = plot(ax,H,pr);
+%             elseif nargin == 5 && ~isempty(fmt)
+%                 locus_line = plot(ax,H,pr,fmt);
+%             elseif nargin > 5 && ~isempty(lineColour) && ~isempty(fmt)
+%                 fprintf('Colour specified\n')
+%                 locus_line = plot(ax,H,pr,fmt,'Color',lineColour);
+%             elseif nargin > 5 && ~isempty(lineColour) && isempty(fmt)
+%                 locus_line = plot(ax,H,pr,'Color',lineColour);
+%             end
+
+            
+            
+            if p.Results.ploteq
+                xtmp = linspace(1,6,51);% linspace(min(H),max(H),51);
+                ytmp = 0.02456*((xtmp-1)./xtmp).^3;
+                hold on
+                plt = plot(xtmp,ytmp,'k:',"LineWidth", p.Results.LineWidth);
+%                 legend([eq_line],'Equilibrium line','Location','northwest')
+            else
+                plt = plot(p.Results.ax, H, pr, fmt, "LineWidth", p.Results.LineWidth);%varplotargs{:});
             end
             xlabel('H_{incomp}')
             ylabel('Pr')
@@ -561,6 +717,7 @@ classdef aveSlice < kCut
                 ys = obj.yBL(i,1:inds(i));
                 value(i) = trapz(ys, Prprof)/(roe*Ue^3);
             end
+            value = smooth(value,obj.nSmooth);
         end
 
         function value = get.blPr_eq(obj)
@@ -602,24 +759,47 @@ classdef aveSlice < kCut
                 roe(i) = ronow(i,inds(i));
                 Ue(i) = Unow(i,inds(i));
             end
-            value = obj.tau_w'./(0.5*roe.*Ue.*Ue);
+                value = obj.tau_w'./(0.5*roe.*Ue.*Ue);
         end
 
 
-
+        
         function value = get.ctau(obj)
+            value = obj.get_ctau;
+        end
+
+        function value = get_ctau(obj)
             inds = obj.BLedgeInd;
             Uenow = obj.Ue;
             ronow = obj.oGridProp('ro');
             for i=1:length(inds)
                 roe(i) = ronow(i,inds(i));
             end
+            
             Prnow = obj.oGridProp('Pr');
             dUdynow = obj.dUdy;
             tau = Prnow./dUdynow;
-            value = max(tau,[],2)./(roe'.*Uenow.^2);
+            value = tau./(roe'.*Uenow.^2);
+        end
+
+        function value = get.ctau_max(obj)
+            ctau = obj.ctau;
+            value = max(ctau,[],2);
         end
                 
+        function value = y_ctau_max(obj)
+            ctau = obj.ctau;
+            [~, inds] = max(ctau,[],2);
+            for i = 1:length(inds)
+                value(i) = obj.yBL(i,inds(i));
+            end
+        end
+
+        function value = j_ctau_max(obj)
+            ctau = obj.ctau;
+            [~, value] = max(ctau,[],2);
+        end
+
                 
 
         function value = get.pdyn(obj)
@@ -639,6 +819,15 @@ classdef aveSlice < kCut
             Y0 = obj.yBL(:,2);
             munow = obj.oGridProp('mu');
             value = munow(:,2).*Unow./Y0;
+
+        end
+
+        function value = get.u_tau(obj)
+
+            ronow = obj.oGridProp('ro');
+            ro_w = ronow(:,1);
+
+            value = sqrt(obj.tau_w./ro_w);
 
         end
 
@@ -665,6 +854,8 @@ classdef aveSlice < kCut
                 zplus = [];
             end
         end
+
+
         
         function blContour(obj, prop, ax, lims, fmt)
             if nargin < 3 || isempty(ax)
@@ -686,6 +877,17 @@ classdef aveSlice < kCut
             cb = colorbar(ax,"southoutside");
             cb.Label.String = string(prop);
 
+        end
+
+        function [i, j, blk] = grid_inds_at_y_plus(obj,x,y_plus)
+            [~,yplus_wall,~] = obj.wall_coords_offset;
+            io = obj.x2ind(x);
+            ys = obj.yBL(io,:);
+            ynow = ys(2) * y_plus / yplus_wall(io);
+            [~, jo] = min(abs(ys - ynow));
+            i = obj.iO(io, jo);
+            j = obj.jO(io, jo);
+            blk = obj.blkO(io, jo);
         end
 
         function plotWallCoords(obj)
@@ -726,7 +928,82 @@ classdef aveSlice < kCut
             value = mu_e./roe;
         end
 
-       
+        function value = get.alpha2(obj)
+            outlet_blks = obj.blk.outlet_blocks{1};
+            xmom = 0;
+            ymom = 0;
+            alp = [];
+            ynow = [];
+            ronow = [];
+            den = 0;
+            num = 0;
+            mass = 0;
+            roave = 0;
+            for ib = outlet_blks
+                i=size(obj.blk.x{ib},1);
+%                 ynow = [ynow obj.blk.y{ib}(i,:)];
+%                 alp = [alp obj.v{ib}(i,:)./obj.u{ib}(i,:)];
+%                 ronow = [ronow obj.ro{ib}(i,:)];
+                ynow = obj.blk.y{ib}(i,:);
+%                 anow = atand(obj.u{ib}(i,:)./obj.v{ib}(i,:));
+                rounow = obj.ro{ib}(i,:).*obj.u{ib}(i,:);
+                rouvnow = obj.ro{ib}(i,:).*obj.u{ib}(i,:).*obj.v{ib}(i,:);
+%                 mnow = obj.ro{ib}(i,:).*obj.u{ib}(i,:);
+%                 num = num+trapz(ynow,anow.*mnow);
+%                 den = den+trapz(ynow,mnow);
+                mass = mass + trapz(ynow,rounow);
+                roave = roave + trapz(ynow, obj.ro{ib}(i,:));
+                ymom = ymom + trapz(ynow,rouvnow);
+            end
+%             [ynow, is] = sort(ynow);
+%             ronow = ronow(is);
+%             alp = alp(is);
+            v = ymom/mass;
+            u = mass/roave;
+
+            value = atan2d(v,u);
+%             value = num/den;
+            
+
+        end
+
+        function value = get.p0out(obj)
+            
+            outlet_blks = obj.blk.outlet_blocks{1};
+
+            num = 0;
+            mass = 0;
+            for ib = outlet_blks
+                i=ceil(0.95*size(obj.blk.x{ib},1));
+                ynow = obj.blk.y{ib}(i,:);
+                p0now = obj.p0{ib}(i,:);
+                rounow = obj.ro{ib}(i,:).*obj.u{ib}(i,:);
+                mass = mass + trapz(ynow,rounow);
+                num = num + trapz(ynow, rounow.*p0now);
+            end
+
+            value = num/den;
+
+        end
+
+        function value = get.yplus(obj)
+                        dy = obj.yBL(:,2);
+            size(dy)
+            ds = obj.ssurf(2:end) - obj.ssurf(1:end-1);
+            ds(end+1) = ds(end);
+            ds = ds';
+            size(ds)
+            
+
+            munow = obj.oGridProp('mu');
+            munow = munow(:,2);
+            ronow = obj.oGridProp('ro');
+            ronow = ronow(:,2);
+
+            value = obj.yBL.*sqrt(abs(obj.tau_w).*ronow)./munow;
+
+        end
+
         
     end
 end

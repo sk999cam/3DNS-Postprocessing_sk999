@@ -146,8 +146,8 @@ classdef kCut < flowSlice
 
         function [profile, i] = BLprof(obj, x, prop)
             %BLPROF get a profile of prop across the BL at specified x
-            [~, i] = min(abs(obj.xSurf-x));
-            if any(strcmp(["dsdy" "U"],prop))
+            i = obj.x2ind(x);
+            if any(strcmp(["dsdy" "U" "yBL" "yplus"],prop))
                 profile = obj.(prop)(i,:);
                 size(profile)
             else
@@ -156,11 +156,17 @@ classdef kCut < flowSlice
             end
         end
 
+        function value = surface_normal(obj, x)
+            i = obj.x2ind(x);
+            
+            value = obj.n(:,i);
+        end
+
         function blfield = oGridProp(obj, prop)
             %OGRIDPROP Construct array of property in o grid for one surface
             %of blade
             
-            if any(strcmp(["U","dsdy"], prop))
+            if any(strcmp(["U","dsdy","yBL","yplus"], prop))
                 blfield = obj.(prop);
             else
                 blfield = [];
@@ -223,23 +229,50 @@ classdef kCut < flowSlice
             blk = obj.blkO(io, jo);
         end
 
+
         function ind = x2ind(obj,x)
             [~, ind] = min(abs(obj.xSurf-x));
         end
 
-        function plot(obj,prop,ax,lims,label)
+        function value = x2prop(obj, x, prop)
+            vals = obj.(prop);
+            i = obj.x2ind(x);
+            value = vals(i);
+        end
+
+        function plot(obj,prop,ax,lims,label,viewarea,rot)
             
+            if nargin < 7 || isempty(rot)
+                rot = 0;
+            end
+
+            R = [cosd(rot) -sind(rot); sind(rot) cosd(rot)];
+
             if nargin < 3 || isempty(ax)
                 ax = gca;
             end
             q = obj.(prop);
             hold on
             for i=1:obj.NB
-                pcolor(ax, obj.blk.x{i}, obj.blk.y{i}, q{i});
+                x = obj.blk.x{i};
+                y = obj.blk.y{i};
+                ni = size(x,1);
+
+                coords = [reshape(x, 1, []); reshape(y, 1, [])];
+                coords = R' * coords;
+
+                xnow = reshape(coords(1,:), ni, []);
+                ynow = reshape(coords(2,:), ni, []);
+
+                pcolor(ax, xnow , ynow, q{i});
             end
             shading('interp')
-            
-            if ~isempty(obj.blk.viewarea)
+
+           if nargin > 6 && ~isempty(viewarea)
+                aspect = [(viewarea(2)-viewarea(1)) (viewarea(4)-viewarea(3)) 1];
+                pbaspect(aspect)
+                axis(viewarea); 
+            elseif ~isempty(obj.blk.viewarea)
                 pbaspect([(obj.blk.viewarea(2)-obj.blk.viewarea(1)) ...
                     (obj.blk.viewarea(4)-obj.blk.viewarea(3)) 1]);
                 axis(obj.blk.viewarea);

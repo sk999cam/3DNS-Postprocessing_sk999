@@ -42,7 +42,6 @@ classdef volTurbulence < handle
                 
                 obj.nk = nk;
                 obj.inlet_width = abs(y(end) - y(1));
-                nk = length(z);
                 x = linspace(0,(ilength-1)*lturb,ilength);
     
                 obj.u = zeros(obj.ni,obj.nj,nk);
@@ -51,20 +50,41 @@ classdef volTurbulence < handle
                 obj.blk.x = zeros(obj.ni,obj.nj);
                 obj.blk.y = zeros(obj.ni,obj.nj);
                 obj.blk.z = linspace(0,span,nk);
-                n=1;
-                for i = 1:obj.ni
-                    fprintf('i=%d/%d\n',i,obj.ni)
-                    for j = 1:obj.nj
-                        for k = 1:obj.nk
-                            obj.u(i,j,k) = q(1,n);
-                            obj.v(i,j,k) = q(2,n);
-                            obj.w(i,j,k) = q(3,n);
-                            n = n+1;
-                            obj.blk.x(i,j) = x(i);
-                            obj.blk.y(i,j) = y(j);
-                        end
-                    end
-                end
+                obj.blk.blockdims = [obj.ni obj.nj, obj.nk];
+%                 n=1;
+%                 for i = 1:obj.ni
+%                     fprintf('i=%d/%d\n',i,obj.ni)
+%                     for j = 1:obj.nj
+%                         for k = 1:obj.nk
+%                             obj.u(i,j,k) = q(1,n);
+%                             obj.v(i,j,k) = q(2,n);
+%                             obj.w(i,j,k) = q(3,n);
+%                             n = n+1;
+%                             obj.blk.x(i,j) = x(i);
+%                             obj.blk.y(i,j) = y(j);
+%                         end
+%                     end
+%                 end
+
+                obj.blk.x = repmat(x', [1 obj.nj]);
+                obj.blk.y = repmat(y, [obj.ni 1]);
+
+                fid_f = fopen(path,'r'); %
+                A = fread(fid_f,inf,'float64');
+                A = reshape(A,3,obj.nj,nk,obj.ni);
+                
+                
+                u = squeeze(A(1,:,:,:));
+                v = squeeze(A(2,:,:,:));
+                w = squeeze(A(3,:,:,:));
+                u = permute(u,[3,1,2]);
+                v = permute(v,[3,1,2]);
+                w = permute(w,[3,1,2]);
+
+                obj.u = u;
+                obj.v = v;
+                obj.w = w;
+
             elseif nargin == 1
                 if exist(fullfile(path, 'inflow_turb.dat'),'file')
                     turbfile = fopen(fullfile(path, 'inflow_turb.dat'),'r');
@@ -142,49 +162,9 @@ classdef volTurbulence < handle
                 obj.ni = ni; obj.nj = nj; obj.nk = nk;
                 gridName = y;
 
-%                 fid_g = fopen(gridName,'r'); %
-%                 G = fread(fid_g,inf,'float64');       
-%             
-%                 G = reshape(G,3,length(G)/3);  
-%                 xb = reshape(G(1,:),[ni,nj,nk]);
-%                 yb = reshape(G(2,:),[ni,nj,nk]);
-%                 zb = reshape(G(3,:),[ni,nj,nk]);
-%                 fclose(fid_g); 
-%                 obj.blk.x = xb(:,:,1);
-%                 obj.blk.y = yb(:,:,1);
-%                 obj.blk.z = zb(1,1,:);
-%                 obj.blk.blockdims = [ni nj nk];
-% 
-%                 obj.u = zeros(ni,nj,nk);
-%                 obj.v = zeros(ni,nj,nk);
-%                 obj.w = zeros(ni,nj,nk);
-% 
-%                 turbfile = fopen(path,'r');
-% 
-%                 q = fread(turbfile,inf,'float64');
-%                 q = reshape(q,3,length(q)/3);
-%                 fclose(turbfile);
-% 
-%                 
-%                 n = 1;
-% 
-%                 for i = 1:obj.ni
-%                     if mod(i, 20) == 0
-%                         fprintf('i=%d/%d\n',i,obj.ni)
-%                     end
-%                     for j = 1:obj.nj
-%                         for k = 1:obj.nk
-%                             obj.u(i,j,k) = q(1,n);
-%                             obj.v(i,j,k) = q(2,n);
-%                             obj.w(i,j,k) = q(3,n);
-%                             n = n+1;
-%                         end
-%                     end
-%                 end
                 fid_f = fopen(path,'r'); %
                 A = fread(fid_f,inf,'float64');
                 A = reshape(A,3,nj,nk,ni);
-                
                 
                 
                 u = squeeze(A(1,:,:,:));
@@ -215,12 +195,12 @@ classdef volTurbulence < handle
             end
         end
 
-        function value = slice(obj,k, gas)
+        function value = slice(obj,k, gas, bcs)
             if nargin == 1 || isempty(k)
                 k = floor(obj.nk/2);
             end
 
-            value = flowSlice(obj.blk, gas);
+            value = flowSlice(obj.blk, gas, bcs);
             value.u{1} = obj.u(:,:,k);
             value.v{1} = obj.v(:,:,k);
             value.w{1} = obj.w(:,:,k);
@@ -310,7 +290,7 @@ classdef volTurbulence < handle
             y_new = new_case.y_inlet;
             fi = linspace(0,1,ilength_new);
             fj = (y_new - y_new(1))/(y_new(end)-y_new(1));
-            fk = linspace(0,1,new_case.blk.nk{1});
+            fk = linspace(0,1,new_case.blk.nk);
             
                 
             %[Jc,Ic,Kc] = meshgrid(fjc,fic,fkc);

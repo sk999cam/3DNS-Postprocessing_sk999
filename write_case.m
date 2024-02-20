@@ -18,7 +18,7 @@ if(~exist(dir,'dir'))
 mkdir(dir);
 end
 
-%write_input_files(casename,blk,next_block,next_patch,corner,bcs,gas,solver,topology,nkproc)
+write_input_files(casename,blk,next_block,next_patch,corner,bcs,gas,solver,topology,nkproc)
 
 % write grid
 for ii=1:NB

@@ -102,7 +102,7 @@ function f = thin_middle(n1, n2)
     ds = 1/(n1-1);
     r0 = 1;
     r = 1.1;
-    r2 = 1.2;
+    r1 = 1.2;
     n = floor(n2/2);
 
     while r - r0 > 1e-10

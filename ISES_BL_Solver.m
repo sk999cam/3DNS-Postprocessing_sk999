@@ -1,4 +1,4 @@
-function [Pr, Ct, CtEQ, pgterm, diffterm] = ISES_CD_outer(s, M, theta, H_ke, H, H_k, delStar, Ue, cf, istart, Kcorr, Kp, Kd)
+function [Pr, Ct, CtEQ, pgterm, diffterm] = MISES_BL_solver(x, M, theta0, H0, H, H_k, delStar, Ue, cf, istart, Kcorr, Kp, Kd)
 
     if nargin < 10 || isempty(Kcorr)
         Kcorr= 4.2;
@@ -17,7 +17,7 @@ function [Pr, Ct, CtEQ, pgterm, diffterm] = ISES_CD_outer(s, M, theta, H_ke, H, 
     A = 6.7; B = 0.75; % MISES Eqm locus consts
     
     
-    dUedx = (Ue(3:end) - Ue(1:end-2))./(s(3:end) - s(1:end-2));
+    dUedx = (Ue(3:end) - Ue(1:end-2))./(x(3:end) - x(1:end-2));
     dUedx = [dUedx(1) dUedx dUedx(end)];
     
 
@@ -31,17 +31,19 @@ function [Pr, Ct, CtEQ, pgterm, diffterm] = ISES_CD_outer(s, M, theta, H_ke, H, 
     Ct(istart) = CtEQ(istart);
 
 
-    for i=istart:length(s)-1
-        dCt_ds = Kcorr*(sqrt(CtEQ(i)) - sqrt(Ct(i)));
+    for i=istart:length(x)-1
+
+        slterm(i) = Kcorr*(sqrt(CtEQ(i)) - sqrt(Ct(i)));
+        dCt_dx = slterm(i);
 
         diffterm(i) = (2*del(i)*H(i)/(B*theta(i)))*(cf(i)/2 - ((H_k(i) - 1)/(A*H_k(i)))^2);
-        dCt_ds = dCt_ds + Kd*diffterm(i);
+        dCt_dx = dCt_dx + Kd*diffterm(i);
 
         pgterm(i) = (2*del(i)/Ue(i))*dUedx(i);
-        dCt_ds = dCt_ds - Kp*pgterm(i);
+        dCt_dx = dCt_dx - Kp*pgterm(i);
         
-        dCt_ds = dCt_ds*Ct(i)/del(i);
-        Ct(i+1) = Ct(i) + dCt_ds*(s(i+1)-s(i));
+        dCt_dx = dCt_dx*Ct(i)/del(i);
+        Ct(i+1) = Ct(i) + dCt_dx*(x(i+1)-x(i));
     end
 
     diffterm(end+1) = NaN;
@@ -93,11 +95,18 @@ function fCf(Hk, Ret, Me)
         + 0.00011*(tanh(4-Hk/0.875) - 1))/Fc;
 end
 
-function val = fHk(Hk, Me, Ret)  
+function val = fHs(Hk, Ret)  
     if Ret < 400
         H0 = 4;
     else
         H0 = 3+ 400/Ret;
     end
-    Hk = 1.505+4/Ret+(0.165-1.6/sqrt(Ret))*
+
+    if Hk < H0
+        Hk = 1.505+4/Ret+(0.165-1.6/sqrt(Ret)) * (H0-Hk)^1.6 / Hk;
+    else
+        Hk = 1.505+4/Ret + (Hk-H0)^2 * (0.04/Hk + 0.007*log(Ret)/(Hk - H0 + 4/log(Ret))^2);
+    end
+
+
 end

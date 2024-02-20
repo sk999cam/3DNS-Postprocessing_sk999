@@ -104,17 +104,57 @@ classdef DNS_channel < DNS_case
                         [fi,fj] = newFlow.get_spacing(newCase.blk.x{ib}, newCase.blk.y{ib});
                         [Jc,Ic,Kc] = meshgrid(fjc,fic,fkc);
                         [J,I,K] = meshgrid(fj,fi,fk);
-                        newFlow.(prop){ib} = interp3(Jc,Ic,Kc,Vn,J,I,K);
+%                         newFlow.(prop){ib} = interp3(Jc,Ic,Kc,Vn,J,I,K);
+                        data = interp3(Jc,Ic,Kc,Vn,J,I,K);
+                        save(fullfile(newCase.casepath,sprintf('block_%d_%s.mat',[ib, prop])), 'data', '-v7.3');
+                        clear data
                     end
                 end
+                
                 clear propnow
             end
+
+            for i=1:ib
+                flow = volFlowBlock();
+                for ip = 1:length(props)
+                    prop = props{ip};
+                    data = load(fullfile(newCase.casepath,sprintf('block_%d_%s.mat',[i, prop])));
+                    flow.(prop) = data;
+                    clear data
+                end
+
+                flow.writeFlow(newCase.casepath, newCase.casetype);
+
+            end
+
             newFlow.blk = newCase.blk;
             newFlow.gas = newCase.gas;
             newFlow.NB = newCase.NB;
             newFlow.casetype = obj.casetype;
             newCase.instFlow = newFlow;
         end
+
+        function assemble_flow(obj)
+            props = {'ro','u','v','w','Et'};
+            
+            for i=1:obj.NB
+                fprintf('Assembling block %d\n', i)
+                flow = volFlowBlock();
+                for ip = 1:length(props)
+                    prop = props{ip};
+                    fprintf('Reading %s\n', prop);
+                    block = load(fullfile(obj.casepath,sprintf('block_%d_%s.mat',[i, prop])));
+                    flow.(prop) = block.data;
+                    clear data
+                end
+                flow.ib = i;
+   
+                fprintf('Writing flow\n')
+                flow.writeFlow(obj.casepath, obj.casetype);
+                clear flow
+            end
+        end
+
 
         function arr = concat_prop(obj, prop)
             arr = [];
@@ -162,8 +202,12 @@ classdef DNS_channel < DNS_case
 
             f = fopen(fullfile(obj.casepath, 'hydra_inlet_bc_data.txt'),'w');
             for j=1:length(kprof)
-                data = fprintf(f,'\t%8.6f\t%8.6f\t%8.6f\t%8.6f\t%8.6f\t%8.6f\t%8.6f\n',...
-                    [y(j) Toin(j) Poin(j) Mprof(j) aprof(j) kprof(j) omprof(j)]);
+%                 data = fprintf(f,'\t%8.6f\t%8.6f\t%8.6f\t%8.6f\t%8.6f\t%8.6f\t%8.6f\n',...
+%                     [y(j) Toin(j) Poin(j) Mprof(j) aprof(j) kprof(j) omprof(j)]);
+%                 data = fprintf(f,'\t%8.6f\t%8.6f\t%8.6f\t%8.6f\t%8.6f\t%8.6f\t%8.6f\n',...
+%                     [y(j) Poin(j) Toin(j) Mprof(j) aprof(j) 0.0 1000.0]);
+                data = fprintf(f,'\t%8.6f\t%8.6f\t%8.6f\t%8.6f\t%8.6f\t%8.6f\n',...
+                    [y(j) Toin(j) Poin(j) aprof(j) kprof(j) omprof(j)]);
             end
             fclose(f);
         end
@@ -200,7 +244,7 @@ classdef DNS_channel < DNS_case
             
             f = fopen(fullfile(obj.casepath, 'hydra_inlet_bc_sub.txt'),'w');
             for j=1:jsonic
-                data = fprintf(f,'\t%8.6f\t%8.6f\t%8.6f\t%8.6f\t%8.6f\t%8.6f\n',...
+                data = fprintf(f,'\t%8.6f\t%8.6f\t%8.6f\t%8.6f\t%8.6f\t%8.6f\t%8.6f\n',...
                     [y(j) Poin(j) Toin(j) aprof(j) kprof(j) omprof(j)]);
             end
             fclose(f);
