@@ -1,4 +1,4 @@
-function write_case(casename,blk,next_block,next_patch,corner,bcs,gas,solver,topology,nkproc)
+function write_case(casename,blk,gas,solver)
 nargin
 if nargin < 10 || ~exist('nkproc','var')
     nkproc = ceil(solver.nk/solver.npp);
@@ -9,8 +9,7 @@ if ~isfield(gas,'gamma')
     gas.gamma = gas.gam;
 end
 
-NB = length(blk.x);
-ncorner = length(corner);   
+NB = length(blk.x);  
 
 dir = fullfile(pwd,casename);
 
@@ -18,7 +17,7 @@ if(~exist(dir,'dir'))
 mkdir(dir);
 end
 
-write_input_files(casename,blk,next_block,next_patch,corner,bcs,gas,solver,topology,nkproc)
+%write_input_files(casename,blk,next_block,next_patch,corner,bcs,gas,solver,topology,nkproc)
 
 % write grid
 for ii=1:NB

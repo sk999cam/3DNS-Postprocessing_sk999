@@ -1,11 +1,11 @@
-function write_input_files(casename,blk,bcs,gas,solver,varargin)
+function write_input_files(casename,blk,bcs,gas,solver,trip,varargin)
 nargin;
 p = inputParser;
 addOptional(p,'topology',[]);
 addOptional(p,'nkproc',[]);
 addOptional(p,'casetype','both');
 parse(p,varargin{:});
-casetype = p.Results.casetype;
+casetype = solver.version;
 nkproc = p.Results.nkproc;
 topology = p.Results.topology;
 if isempty(nkproc)
@@ -127,12 +127,12 @@ if ismember(casetype, {'gpu', 'all'})
     
     end
     
-    fprintf(fidin,'%d',blk.nbg); % 1 block group
+    fprintf(fidin,'%d\n',blk.nbg); % 1 block group
     for nbg = 1:blk.nbg
         nb_bg = length(blk.block_groups{nbg});
-        fprintf(fidin,'\n%d\n',nb_bg); % NB blocks in group
+        fprintf(fidin,'%d\n',nb_bg); % NB blocks in group
         for ib=1:nb_bg
-            fprintf(fidin,'%d ',blk.block_groups{nbg}(ib)); % blocks in group
+            fprintf(fidin,'%d',blk.block_groups{nbg}(ib)); % blocks in group
         end
     end
     
@@ -162,6 +162,51 @@ if ismember(casetype, {'gpu', 'all'})
         fprintf(fidin,'%d %d\n', [solver.ilam bcs.theta]);
     
     fclose(fidin);
+
+    % write bl_recycle.txt
+    fblrec = fopen(fullfile(dir,'bl_recycle.txt'),'w');
+    fprintf(fblrec,'%f\n', [solver.iblrec]);
+    fclose(fblrec);
+
+    % free stream buffer region
+    ffreebuff = fopen(fullfile(dir,'free_buffer.txt'),'w');
+    fprintf(ffreebuff,'%d \n', [solver.freebuff]);
+    fclose(ffreebuff);
+
+    % write in_buffer.txt
+    finbuff = fopen(fullfile(dir,'in_buffer.txt'),'w');
+    fprintf(finbuff,'%d %f\n', [5, 0.0001]);
+    fclose(finbuff);
+
+    % write out_buffer.txt
+    foutbuff = fopen(fullfile(dir,'out_buffer.txt'),'w');
+    fprintf(foutbuff,'%d %f\n', [10, 0.01]);
+    fclose(foutbuff);
+
+    %write freestream.txt
+    ffreestream = fopen(fullfile(dir, 'freestream.txt'), 'w');
+    fprintf(ffreestream,'%d', [bcs.nfsp]);
+    diff = 1/(bcs.nfsp-1);
+    x = 0;
+
+    for fsp=1:bcs.nfsp
+        u=((1/bcs.vin)-(bcs.k*bcs.Lref*x/gas.mu_ref))^(-1);
+        
+        vstarsq = (u/sqrt(gas.cp*bcs.Toin))^2;
+        gm1 =gas.gamma -1;
+
+        M = sqrt((vstarsq)/(gm1*(1-0.5*vstarsq)));
+        p = bcs.Poin*(1+0.5*gm1*M^2)^(-gas.gamma/gm1);
+        fprintf(ffreestream, '\n%f %f %f', [x,u,p]);
+        x = x+diff;
+    end
+    fclose(ffreestream);
+    % write trip.txt
+    ftrip = fopen(fullfile(dir, 'trip.txt'), 'w');
+    fprintf(ftrip, '%d', [trip.ifLEtrip]);
+    fprintf(ftrip, '\n%f %f %f %f', [trip.x1,trip.y1,trip.x2,trip.y2]);
+    fprintf(ftrip, '\n%f %d', [trip.tripscale,trip.kspace]);
+    fclose(ftrip);
 end
 
 
